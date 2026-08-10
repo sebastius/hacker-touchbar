@@ -1,0 +1,28 @@
+#!/bin/bash
+# touchbar-fx resume hook (installed to /usr/lib/systemd/system-sleep/).
+#
+# The daemon survives suspend but its DRM pipeline stays black
+# afterwards — only a fresh open re-modesets the panel. Restart it on
+# every resume, but only if it was running when the lid closed
+# (respect tiny-dfr-only setups).
+#
+# Match the full binary path, NOT `pgrep -x touchbar-fx`: this script
+# is itself named touchbar-fx, and a shebang script's comm is the
+# script name — the plain match SIGINTs the hook mid-run and the
+# daemon never comes back.
+[ "$1" = "post" ] || exit 0
+pgrep -xf '^/usr/local/bin/touchbar-fx( |$)' >/dev/null || exit 0
+
+kill -INT $(pgrep -xf '^/usr/local/bin/touchbar-fx( |$)') 2>/dev/null
+for i in 1 2 3 4 5; do
+    pgrep -xf '^/usr/local/bin/touchbar-fx( |$)' >/dev/null || break
+    sleep 1
+done
+pgrep -xf '^/usr/local/bin/touchbar-fx( |$)' >/dev/null \
+    && kill -9 $(pgrep -xf '^/usr/local/bin/touchbar-fx( |$)') 2>/dev/null
+
+# Match the session context the Hyprland autostart runs with, so the
+# daemon reads the user config and serves the same IPC socket path.
+export HOME=/home/buku
+export XDG_RUNTIME_DIR=/run/user/1000
+setsid nohup /usr/local/bin/touchbar-fx >>/tmp/touchbar-fx.log 2>&1 &

@@ -1,0 +1,82 @@
+/* TouchbarFX OEL — Pioneer head-unit OEL display vibes for Spotify.
+   Pure black glass, phosphor cyan type, dot-matrix attitude. */
+
+:root {
+  --oel-cyan: #2fd8ff;
+  --oel-cyan-hi: #8ae9ff;
+  --oel-cyan-dim: #1e9cc4;
+  --oel-cyan-dark: #0a3d4d;
+  --oel-glow: 0 0 6px rgba(47, 216, 255, 0.55);
+}
+
+/* Dot-matrix terminal type everywhere */
+* {
+  font-family: "JetBrains Mono", "Cascadia Mono", "DejaVu Sans Mono",
+    monospace !important;
+  letter-spacing: 0.01em;
+}
+
+/* Section headers read like OEL mode labels */
+.main-entityHeader-title,
+.main-type-canon,
+.main-type-alto {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-shadow: var(--oel-glow);
+}
+
+/* Transport cluster: arcade-button glow */
+.main-playButton-PlayButton,
+.player-controls__buttons button {
+  transition: box-shadow 120ms ease, transform 80ms ease;
+}
+.main-playButton-PlayButton:hover,
+.player-controls__buttons button:hover {
+  box-shadow: var(--oel-glow);
+}
+.main-playButton-PlayButton:active {
+  transform: scale(0.94);
+}
+
+/* Seek + volume: thin phosphor trace */
+.progress-bar__slider,
+.volume-bar__slider-button {
+  box-shadow: var(--oel-glow);
+}
+.x-progressBar-fillColor,
+.main-volumeBar-overlay::before {
+  filter: drop-shadow(0 0 3px rgba(47, 216, 255, 0.8));
+}
+
+/* Now-playing bar: OEL display window — 1px frame like the touchbar
+   zone borders */
+.main-nowPlayingBar-nowPlayingBar {
+  border-top: 1px solid var(--oel-cyan-dark);
+}
+
+/* Cards: subtle display-window frame on hover */
+.main-card-card {
+  border: 1px solid transparent;
+  transition: border-color 120ms ease;
+}
+.main-card-card:hover {
+  border-color: var(--oel-cyan-dark);
+}
+
+/* Sidebar selection: framed, not filled loud */
+.main-yourLibraryList-row,
+.main-rootlist-wrapper li[aria-selected="true"] {
+  border-left: 2px solid var(--oel-cyan);
+}
+
+/* Scrollbars: thin cyan trace */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--oel-cyan-dark);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--oel-cyan-dim);
+}
