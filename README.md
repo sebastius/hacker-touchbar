@@ -162,6 +162,7 @@ cmake -B build && cmake --build build
 
 Adding an animation is one file in `src/viz/presets/` with a `REGISTER_PRESET`
 line, then add its name to `cycle` in the config.
+[docs/HANDLEIDING.md](docs/HANDLEIDING.md) has a worked example, in Dutch.
 
 ```
 src/mode/      deck, Fn key rows, original media center
