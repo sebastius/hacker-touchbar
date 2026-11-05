@@ -27,6 +27,9 @@
 
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
+#include "input/fn_watcher.hpp"
+#include "util/bar_backlight.hpp"
+#include "input/virtual_keyboard.hpp"
 #include <signal.h>
 #include <unistd.h>
 #include <cstdio>
@@ -67,6 +70,7 @@ static void print_usage(const char* argv0) {
         "\n"
         "Headless frame dump (no touch bar hardware needed):\n"
         "      --dump-frames N  render N frames of the media center and exit\n"
+        "      --dump-mode NAME mode to render (default mediacenter)\n"
         "      --out DIR        dump directory (default /tmp/tbfx-frames)\n"
         "      --width W        dump width  (default [dump] width, 2170)\n"
         "      --height H       dump height (default [dump] height, 60)\n"
@@ -78,7 +82,8 @@ static void print_usage(const char* argv0) {
 // Headless harness: render the media center mode (transport |
 // visualizer + fake track overlay | volume slider) into BMP files.
 static int runDump(const Config& cfg, int frames, const std::string& out_dir,
-                   bool null_audio, int w, int h) {
+                   bool null_audio, int w, int h,
+                   const std::string& mode_name) {
     log_info("Dump mode: %d frames at %dx%d -> %s (%s)",
              frames, w, h, out_dir.c_str(),
              null_audio ? "null audio" : "live monitor");
@@ -96,9 +101,9 @@ static int runDump(const Config& cfg, int frames, const std::string& out_dir,
     ModeContext ctx{loop, cfg, source, nullptr};
     ctx.mpris_factory = [] { return std::make_unique<FakeMprisClient>(); };
 
-    std::unique_ptr<Mode> mode = createMode("mediacenter", ctx);
+    std::unique_ptr<Mode> mode = createMode(mode_name, ctx);
     if (!mode || mode->widgets().empty()) {
-        log_error("Dump mode: mediacenter mode unavailable");
+        log_error("Dump mode: %s mode unavailable", mode_name.c_str());
         return 1;
     }
     layout.setWidgetsBorrowed(mode->widgets(), scheduler);
@@ -120,6 +125,7 @@ int main(int argc, char* argv[]) {
     bool screen = false;
     int dump_frames = 0;
     std::string out_dir = "/tmp/tbfx-frames";
+    std::string dump_mode = "mediacenter";
     std::string config_path;
     int width = 0, height = 0;
 
@@ -137,6 +143,7 @@ int main(int argc, char* argv[]) {
         else if (arg == "--null-audio") null_audio = true;
         else if (arg == "--screen") screen = true;
         else if (arg == "--dump-frames") dump_frames = atoi(next("--dump-frames").c_str());
+        else if (arg == "--dump-mode") dump_mode = next("--dump-mode");
         else if (arg == "--out") out_dir = next("--out");
         else if (arg == "--config") config_path = next("--config");
         else if (arg == "--width") width = atoi(next("--width").c_str());
@@ -152,12 +159,17 @@ int main(int argc, char* argv[]) {
 
     Config cfg = Config::load(config_path.empty() ? Config::defaultPath()
                                                   : config_path);
+    if (config_path.empty()) {
+        const std::string saved = Config::savedTheme();
+        if (!saved.empty()) cfg.ui_theme = saved;
+    }
     theme::apply(Theme::fromName(cfg.ui_theme), cfg.ui_theme);
     if (width <= 0) width = cfg.dump_width;
     if (height <= 0) height = cfg.dump_height;
 
     if (dump_frames > 0)
-        return runDump(cfg, dump_frames, out_dir, null_audio, width, height);
+        return runDump(cfg, dump_frames, out_dir, null_audio, width, height,
+                       dump_mode);
 
     log_info("touchbar-fx v0.3.0 starting");
 
@@ -240,9 +252,33 @@ int main(int argc, char* argv[]) {
         : std::unique_ptr<AudioSource>(std::make_unique<PulseMonitorSource>());
 
     // Exclusive full-bar modes from the registry, in TOML order
+    VirtualKeyboard keyboard;
+    keyboard.init();
+    FnWatcher fn(loop);
+
     ModeContext ctx{loop, cfg, source, nullptr};
+    ctx.key_sink = [&](int code, bool down) {
+        fn.tracker().markUsed();  // Fn + bar key is not a Fn tap
+        keyboard.send(code, down);
+    };
+    ctx.on_theme_saved = [](const std::string& name) { Config::saveTheme(name); };
+
+    BarBacklight bar;
+    if (bar.available()) {
+        const int saved = Config::savedBarLevel();
+        if (saved >= 0) bar.set(saved);
+        ctx.bar_level = [&bar] { return bar.level(); };
+        ctx.cycle_bar = [&bar] {
+            bar.cycle();
+            Config::saveBarLevel(bar.level());
+        };
+    }
     ModeManager modes(loop, layout, scheduler, cfg, ctx);
     modes.start();
+
+    fn.tracker().on_hold = [&modes](bool held) { modes.setFnHeld(held); };
+    fn.tracker().on_tap = [&modes] { modes.toggleControls(); };
+    fn.init();
 
     // IPC socket for touchbar-fxctl / keybinds
     IpcServer ipc(loop);
@@ -254,12 +290,14 @@ int main(int argc, char* argv[]) {
 
     // HTTP bridge (127.0.0.1) for clients that can't reach the unix
     // socket — an external/manual override path for hue and art.
+#ifdef TOUCHBAR_FX_HTTP_BRIDGE  // off: unauthenticated, CORS *, any website could reach it
     HttpBridge http(loop);
     if (http.init()) {
         http.setHandler([&modes](const std::string& cmd) {
             return modes.handleCommand(cmd);
         });
     }
+#endif
 
     // Touch input: taps, long-presses and drags go to widgets (modes
     // switch via the mode button, presets via the ✦ button — this
@@ -309,5 +347,8 @@ int main(int argc, char* argv[]) {
 
     close(sig_fd);
     log_info("Goodbye");
-    return 0;
+    // Leave now: the bar is released, and the destructors would join an
+    // audio thread that stays blocked in its read while nothing plays.
+    fflush(nullptr);
+    _exit(0);
 }

@@ -103,7 +103,16 @@ void VizWidget::onTap(int x, int y) {
 }
 
 void VizWidget::onLongPress(int x, int y) {
-    if (viz_) viz_->onLongPress(x, y);  // e.g. pioneer page flip
+    if (cycle_on_long_press_) nextInCycle();
+    else if (viz_) viz_->onLongPress(x, y);  // e.g. pioneer page flip
+}
+
+void VizWidget::nextInCycle() {
+    const auto& list = cfg_.viz_cycle;
+    if (list.empty()) return;
+    auto it = std::find(list.begin(), list.end(), presetName());
+    const size_t i = it == list.end() ? 0 : (it - list.begin() + 1) % list.size();
+    setPreset(list[i]);
 }
 
 bool VizWidget::setPreset(const std::string& name) {

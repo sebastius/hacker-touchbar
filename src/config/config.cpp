@@ -1,3 +1,4 @@
+#include <fstream>
 #include "config/config.hpp"
 #include "util/log.hpp"
 #include "toml.hpp"
@@ -20,6 +21,47 @@ std::string Config::defaultPath() {
         }
     }
     return std::string(getenv("HOME")) + "/.config/touchbar-fx/config.toml";
+}
+
+static std::string stateFilePath(const char* name) {
+    std::string p = Config::defaultPath();
+    return p.substr(0, p.rfind('/') + 1) + name;
+}
+
+static std::string readState(const char* name) {
+    std::string value;
+    std::ifstream f(stateFilePath(name));
+    f >> value;
+    return value;
+}
+
+static void writeState(const char* name, const std::string& value) {
+    const std::string path = stateFilePath(name);
+    {
+        std::ofstream f(path);
+        f << value << "\n";
+    }
+    // Under sudo: keep the file the user's, like the config beside it.
+    const char* uid = getenv("SUDO_UID");
+    const char* gid = getenv("SUDO_GID");
+    if (getuid() == 0 && uid && gid && chown(path.c_str(), atoi(uid), atoi(gid)) != 0)
+        log_warn("Could not hand %s to the user", path.c_str());
+}
+
+std::string Config::savedTheme() {
+    std::string name = readState("theme");
+    return (name == "green" || name == "amber") ? name : "";
+}
+
+void Config::saveTheme(const std::string& name) { writeState("theme", name); }
+
+int Config::savedBarLevel() {
+    const std::string v = readState("bar-brightness");
+    return (v == "1" || v == "2") ? v[0] - '0' : -1;
+}
+
+void Config::saveBarLevel(int level) {
+    writeState("bar-brightness", std::to_string(level));
 }
 
 Config Config::load(const std::string& path) {
@@ -56,6 +98,28 @@ Config Config::load(const std::string& path) {
     cfg.mc_flash_seconds   = tbl["mediacenter"]["flash_seconds"].value_or(cfg.mc_flash_seconds);
 
     cfg.viz_preset         = tbl["visualizer"]["preset"].value_or(cfg.viz_preset);
+    if (auto* rows = tbl["controls"].as_array()) {
+        std::vector<ControlKey> keys;
+        for (auto& row : *rows) {
+            auto* t = row.as_table();
+            if (!t) continue;
+            ControlKey k;
+            k.show = (*t)["show"].value_or(k.show);
+            k.label = (*t)["label"].value_or(k.label);
+            k.width = (*t)["width"].value_or(k.width);
+            if (auto* names = (*t)["keys"].as_array())
+                for (auto& n : *names)
+                    if (auto v = n.value<std::string>()) k.keys.push_back(*v);
+            keys.push_back(std::move(k));
+        }
+        if (!keys.empty()) cfg.controls = std::move(keys);
+    }
+    if (auto* cycle = tbl["visualizer"]["cycle"].as_array()) {
+        std::vector<std::string> names;
+        for (auto& n : *cycle)
+            if (auto s = n.value<std::string>()) names.push_back(*s);
+        if (!names.empty()) cfg.viz_cycle = names;
+    }
     cfg.viz_rotate_seconds = tbl["visualizer"]["rotate_seconds"].value_or(cfg.viz_rotate_seconds);
     cfg.viz_bars        = tbl["visualizer"]["bars"].value_or(cfg.viz_bars);
     cfg.viz_smoothing   = tbl["visualizer"]["smoothing"].value_or(cfg.viz_smoothing);

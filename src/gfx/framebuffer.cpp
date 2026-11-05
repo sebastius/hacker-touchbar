@@ -76,7 +76,10 @@ void Framebuffer::fillCircle(int cx, int cy, int r, uint32_t color) {
     }
 }
 
+bool Framebuffer::square_corners = false;
+
 void Framebuffer::fillRoundRect(int x, int y, int w, int h, int r, uint32_t color) {
+    if (square_corners) { fillRect(x, y, w, h, color); return; }
     if (r > h / 2) r = h / 2;
     if (r > w / 2) r = w / 2;
     // Center rectangle
@@ -95,6 +98,7 @@ void Framebuffer::fillRoundRect(int x, int y, int w, int h, int r, uint32_t colo
 }
 
 void Framebuffer::drawRoundRect(int x, int y, int w, int h, int r, uint32_t color) {
+    if (square_corners) { drawRect(x, y, w, h, color); return; }
     if (r > h / 2) r = h / 2;
     if (r > w / 2) r = w / 2;
     // Top and bottom edges

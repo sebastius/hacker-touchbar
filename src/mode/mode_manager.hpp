@@ -32,6 +32,14 @@ public:
     // Auto-jump home on MPRIS track change / playback start.
     void notifyTrackChanged();
 
+    // Fn layers sit on top of the configured modes: holding Fn shows
+    // "fkeys", a quick tap keeps "controls" up until the next tap.
+    void setFnHeld(bool held);
+    void toggleControls();
+
+    // Live theme switch: "green" or "amber".
+    bool setTheme(const std::string& name);
+
     const std::string& currentMode() const { return current_; }
 
     // IPC command handler: "cycle", "mode <name>"; anything else is
@@ -46,4 +54,12 @@ private:
     std::vector<std::string> order_;  // configured order (known modes only)
     std::unordered_map<std::string, std::unique_ptr<Mode>> modes_;
     std::string current_;
+
+    bool layerActive() const { return fn_held_ || controls_on_; }
+    void applyLayer();
+
+    std::function<void(const std::string&)> on_theme_saved_;
+    std::string base_;  // mode to return to when the layers close
+    bool fn_held_ = false;
+    bool controls_on_ = false;
 };

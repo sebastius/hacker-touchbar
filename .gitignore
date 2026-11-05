@@ -5,7 +5,3 @@ compile_commands.json
 *.o
 *.swp
 *~
-
-# Pioneer OEL clip data is not distributed with this repo.
-# Drop .lkd files into assets/clips/ (see README).
-assets/clips/

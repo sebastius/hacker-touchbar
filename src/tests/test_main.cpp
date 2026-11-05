@@ -22,6 +22,9 @@
 #include "widget/layout_engine.hpp"
 #include "widget/slider_widget.hpp"
 #include "widget/builtin/brightness_widget.hpp"
+#include "widget/builtin/key_row_widget.hpp"
+#include "input/fn_watcher.hpp"
+#include "util/bar_backlight.hpp"
 #include "widget/builtin/transport_widget.hpp"
 #include "widget/builtin/viz_widget.hpp"
 #include "viz/pioneer_hues.hpp"
@@ -308,21 +311,17 @@ static void renderFrames(VizRenderer& viz, NullAudioSource& src,
 static void test_presets() {
     auto names = presetNames();
     bool has_waves = false, has_scope = false, has_dolphins = false,
-         has_spectrum = false, has_pioneer = false, has_penguin = false;
+         has_spectrum = false;
     for (auto& n : names) {
         if (n == "waves") has_waves = true;
         if (n == "oscilloscope") has_scope = true;
         if (n == "dolphins") has_dolphins = true;
         if (n == "spectrum") has_spectrum = true;
-        if (n == "pioneer") has_pioneer = true;
-        if (n == "penguin") has_penguin = true;
     }
     CHECK(has_waves);
     CHECK(has_scope);
     CHECK(has_dolphins);
     CHECK(has_spectrum);
-    CHECK(has_pioneer);
-    CHECK(has_penguin);
     CHECK(createPreset("does-not-exist") == nullptr);
 
     Config cfg;
@@ -381,156 +380,23 @@ static void test_presets() {
     CHECK(slit > 400);
     CHECK(top_lit > 0);
 
-    // pioneer smoke check: decodes the real .lkd clips from the repo
-    // (located relative to this source file) and renders moving
-    // content (time-based 14 fps source playback).
-    {
-        std::string clip_dir = __FILE__;
-        clip_dir = clip_dir.substr(0, clip_dir.find_last_of('/'));
-        clip_dir += "/../../assets/clips";
-        setenv("TOUCHBAR_FX_CLIP_DIR", clip_dir.c_str(), 1);
-        Framebuffer fb_p(640, 60);
-        NullAudioSource src_p;
-        VizRenderer viz_p(640, 60, cfg, "pioneer");
-        renderFrames(viz_p, src_p, fb_p, 40);
-        int plit = 0;
-        for (int i = 0; i < total; ++i)
-            if (fb_p.data()[i] != 0xFF000000) ++plit;
-        printf("pioneer frame: %d/%d lit pixels\n", plit, total);
-        // 8 aspect-correct panels cover ~1/3 of the frame; the dense
-        // cyan imagery lights most of that.
-        CHECK(plit > total / 6);
-
-        std::vector<uint32_t> pbefore(fb_p.data(), fb_p.data() + total);
-        // Playback is time-based, so let the clock advance a few
-        // source frames instead of just rendering more frames.
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
-        renderFrames(viz_p, src_p, fb_p, 8);
-        int pmoved = 0;
-        for (int i = 0; i < total; ++i)
-            if (fb_p.data()[i] != pbefore[i]) ++pmoved;
-        printf("pioneer frames moved %d/%d pixels in 8 frames\n",
-               pmoved, total);
-        CHECK(pmoved > 500);
-
-        // Tap a panel (panel 3 of 8 at 640 px wide) -> focus mode:
-        // full-bright stock-cyan backdrop behind an accent-color
-        // (amber) center window.
-        viz_p.onTap(3 * 640 / 8 + 10, 30);
-        renderFrames(viz_p, src_p, fb_p, 8);
-        int amber = 0, cyan = 0;
-        for (int i = 0; i < total; ++i) {
-            const uint32_t px = fb_p.data()[i];
-            const int r = (px >> 16) & 0xFF, b = px & 0xFF;
-            if (r > 60 && b < r / 2) ++amber;
-            if (b > 60 && r < b / 2) ++cyan;
-        }
-        printf("pioneer focus: %d amber + %d cyan pixels\n", amber, cyan);
-        CHECK(amber > 1000);  // accent center window
-        CHECK(cyan > 1000);   // dim backdrop covers most of the frame
-
-        // Tap again -> back to the wall (all-cyan panels, no amber).
-        viz_p.onTap(320, 30);
-        renderFrames(viz_p, src_p, fb_p, 8);
-        amber = 0;
-        for (int i = 0; i < total; ++i) {
-            const uint32_t px = fb_p.data()[i];
-            const int r = (px >> 16) & 0xFF, b = px & 0xFF;
-            if (r > 60 && b < r / 2) ++amber;
-        }
-        printf("pioneer back to wall: %d amber pixels\n", amber);
-        CHECK(amber == 0);
-    }
-
-    // penguin smoke check: the flock renders real sprites on the
-    // ground line, and the scene animates.
-    {
-        Framebuffer fb_g(640, 60);
-        NullAudioSource src_g;
-        VizRenderer viz_g(640, 60, cfg, "penguin");
-        renderFrames(viz_g, src_g, fb_g, 40);
-        int glit = 0;
-        for (int i = 0; i < total; ++i)
-            if (fb_g.data()[i] != 0xFF000000) ++glit;
-        printf("penguin frame: %d/%d lit pixels\n", glit, total);
-        CHECK(glit > 800);  // ten sprites + ground line
-
-        std::vector<uint32_t> gbefore(fb_g.data(), fb_g.data() + total);
-        renderFrames(viz_g, src_g, fb_g, 12);
-        int gmoved = 0;
-        for (int i = 0; i < total; ++i)
-            if (fb_g.data()[i] != gbefore[i]) ++gmoved;
-        printf("penguin frames moved %d/%d pixels in 12 frames\n",
-               gmoved, total);
-        CHECK(gmoved > 200);
-    }
-
-    // penguin 808 reaction: a bass onset launches the flock — most
-    // of the ten penguins should be airborne right after the hit.
-    {
-        Framebuffer fb8(640, 60);
-        VizRenderer viz8(640, 60, cfg, "penguin");
-        std::vector<float> silence(1024, 0.0f);
-        for (int i = 0; i < 40; ++i) {
-            viz8.feedSamples(silence.data(), silence.size(), 48000);
-            viz8.render(fb8);
-        }
-        CHECK(viz8.airborneCount() == 0);  // settled in silence
-        // 808: sustained 45 Hz sine — the onset fires on the rise.
-        int max_airborne = 0;
-        double phase = 0.0;
-        std::vector<float> burst(1024);
-        for (int f = 0; f < 25; ++f) {
-            for (size_t i = 0; i < burst.size(); ++i) {
-                burst[i] = static_cast<float>(0.9 * std::sin(phase));
-                phase += 2.0 * M_PI * 45.0 / 48000.0;
-            }
-            viz8.feedSamples(burst.data(), burst.size(), 48000);
-            viz8.render(fb8);
-            max_airborne = std::max(max_airborne, viz8.airborneCount());
-        }
-        printf("penguin 808: up to %d penguins airborne on the hit\n",
-               max_airborne);
-        CHECK(max_airborne >= 5);
-    }
-
-    // penguin idle socials: left in silence, the flock wanders to
-    // each other and interacts — hearts rise into rows a grounded
-    // penguin can never reach (hop apex tops out at row ~8).
-    {
-        Framebuffer fb_s2(640, 60);
-        VizRenderer viz_s2(640, 60, cfg, "penguin");
-        std::vector<float> silence(1024, 0.0f);
-        int social_top = 0;
-        long social_frame = -1;
-        for (int f = 0; f < 3000 && social_top == 0; ++f) {
-            viz_s2.feedSamples(silence.data(), silence.size(), 48000);
-            viz_s2.render(fb_s2);
-            int n = 0;
-            for (int i = 0; i < 640 * 8; ++i)
-                if (fb_s2.data()[i] != 0xFF000000) ++n;
-            if (n > 0) { social_top = n; social_frame = f; }
-        }
-        printf("penguin social: %d lit pixels in rows 0-7 (frame %ld)\n",
-               social_top, social_frame);
-        CHECK(social_top > 0);
-    }
-
     // Unknown preset name keeps the current one. Rotation order is
-    // alphabetical: dolphins -> oscilloscope -> penguin -> pioneer ->
+    // alphabetical: dolphins -> oscilloscope ->
     // spectrum -> waves.
     CHECK(!viz_a.setPreset("does-not-exist"));
     CHECK(viz_a.presetName() == "waves");
     viz_a.cyclePreset(+1);
     CHECK(viz_a.presetName() == "dolphins");
     viz_a.cyclePreset(+1);
+    CHECK(viz_a.presetName() == "life");
+    viz_a.cyclePreset(+1);
+    CHECK(viz_a.presetName() == "matrix");
+    viz_a.cyclePreset(+1);
     CHECK(viz_a.presetName() == "oscilloscope");
     viz_a.cyclePreset(+1);
-    CHECK(viz_a.presetName() == "penguin");
-    viz_a.cyclePreset(+1);
-    CHECK(viz_a.presetName() == "pioneer");
-    viz_a.cyclePreset(+1);
     CHECK(viz_a.presetName() == "spectrum");
+    viz_a.cyclePreset(+1);
+    CHECK(viz_a.presetName() == "stars");
     viz_a.cyclePreset(+1);
     CHECK(viz_a.presetName() == "waves");
 }
@@ -588,6 +454,26 @@ static void test_theme() {
     CHECK(theme::green == oel.green);
     theme::apply(def);
     CHECK(theme::green == def.green);
+
+    // Terminal themes: distinct phosphors, square corners only while on.
+    Theme grn = Theme::fromName("green");
+    Theme amb = Theme::fromName("amber");
+    CHECK(grn.terminal && amb.terminal && !def.terminal);
+    CHECK(grn.text != amb.text);
+    theme::apply(amb, "amber");
+    CHECK(Framebuffer::square_corners);
+
+    // crt(): one hue, darker odd rows, black stays black.
+    Framebuffer fbuf(2, 2);
+    fbuf.clear(0xFFFFFFFF);
+    fbuf.setPixel(1, 0, 0xFF000000);
+    theme::crt(fbuf);
+    CHECK(fbuf.getPixel(0, 0) == amb.text);
+    CHECK(fbuf.getPixel(1, 0) == 0xFF000000);
+    CHECK((fbuf.getPixel(0, 1) & 0xFF0000) < (amb.text & 0xFF0000));
+
+    theme::apply(def);
+    CHECK(!Framebuffer::square_corners);
 }
 
 // ---- brightness slider ----
@@ -668,7 +554,7 @@ static void test_modes() {
     }
 
     // The preset button (immediately right of the mode button) cycles
-    // presets: waves -> dolphins -> oscilloscope -> penguin -> pioneer
+    // presets: waves -> dolphins -> oscilloscope
     // -> spectrum -> waves.
     Widget* pbtn = layout.widgetAt(85);
     CHECK(pbtn != nullptr);
@@ -676,13 +562,15 @@ static void test_modes() {
         pbtn->onTap(25, 30);
         CHECK(modes.handleCommand("preset") == "ok dolphins");
         pbtn->onTap(25, 30);
+        CHECK(modes.handleCommand("preset") == "ok life");
+        pbtn->onTap(25, 30);
+        CHECK(modes.handleCommand("preset") == "ok matrix");
+        pbtn->onTap(25, 30);
         CHECK(modes.handleCommand("preset") == "ok oscilloscope");
         pbtn->onTap(25, 30);
-        CHECK(modes.handleCommand("preset") == "ok penguin");
-        pbtn->onTap(25, 30);
-        CHECK(modes.handleCommand("preset") == "ok pioneer");
-        pbtn->onTap(25, 30);
         CHECK(modes.handleCommand("preset") == "ok spectrum");
+        pbtn->onTap(25, 30);
+        CHECK(modes.handleCommand("preset") == "ok stars");
         pbtn->onTap(25, 30);
         CHECK(modes.handleCommand("preset") == "ok waves");
     }
@@ -741,7 +629,7 @@ static void test_modes() {
     CHECK(modes.handleCommand("preset oscilloscope") == "ok oscilloscope");
     CHECK(modes.handleCommand("preset") == "ok oscilloscope");
     layout.render(composite);  // materializes the renderer
-    CHECK(modes.handleCommand("preset next") == "ok penguin");
+    CHECK(modes.handleCommand("preset next") == "ok spectrum");
     CHECK(modes.handleCommand("preset prev") == "ok oscilloscope");
     CHECK(modes.handleCommand("preset bogus").rfind("err", 0) == 0);
     CHECK(modes.handleCommand("frobnicate").rfind("err", 0) == 0);
@@ -907,6 +795,190 @@ static void test_art_analyze() {
     CHECK(red_first || blue_first);
 }
 
+static void test_fn_tracker() {
+    std::vector<std::string> log;
+    FnTracker t;
+    t.on_hold = [&](bool h) { log.push_back(h ? "hold" : "free"); };
+    t.on_tap = [&] { log.push_back("tap"); };
+
+    t.onKey(KEY_FN, 1, 1000);   // quick tap: tap fires before release
+    t.onKey(KEY_FN, 2, 1050);   // autorepeat is ignored
+    t.onKey(KEY_FN, 0, 1100);
+    CHECK((log == std::vector<std::string>{"hold", "tap", "free"}));
+
+    log.clear();                // long hold is not a tap
+    t.onKey(KEY_FN, 1, 2000);
+    t.onKey(KEY_FN, 0, 2900);
+    CHECK((log == std::vector<std::string>{"hold", "free"}));
+
+    log.clear();                // Fn+arrow chord is not a tap
+    t.onKey(KEY_FN, 1, 3000);
+    t.onKey(KEY_LEFT, 1, 3010);
+    t.onKey(KEY_LEFT, 0, 3020);
+    t.onKey(KEY_FN, 0, 3030);
+    CHECK((log == std::vector<std::string>{"hold", "free"}));
+
+    log.clear();                // Fn + bar key is not a tap
+    t.onKey(KEY_FN, 1, 4000);
+    t.markUsed();
+    t.onKey(KEY_FN, 0, 4030);
+    CHECK((log == std::vector<std::string>{"hold", "free"}));
+}
+
+static void test_key_row() {
+    using K = KeyRowWidget::Key;
+    using G = KeyRowWidget::Show;
+    std::vector<std::pair<int, bool>> sent;
+    KeyRowWidget row({{G::Label, "A", {KEY_A}, 1, nullptr},
+                      {G::Label, "AB", {KEY_LEFTCTRL, KEY_T}, 2, nullptr},
+                      {G::Clock, "", {}, 1, nullptr}},
+                     [&](int c, bool d) { sent.push_back({c, d}); });
+    row.setAllocatedWidth(400);
+    CHECK(row.keyAt(50) == 0);
+    CHECK(row.keyAt(150) == 1);
+    CHECK(row.keyAt(350) == 2);
+    CHECK(row.keyAt(399) == 2);
+    CHECK(row.keyAt(400) == -1);
+
+    row.onPress(150, 30);       // combo: down in order, up reversed
+    row.onRelease();
+    CHECK((sent == std::vector<std::pair<int, bool>>{
+        {KEY_LEFTCTRL, true}, {KEY_T, true},
+        {KEY_T, false}, {KEY_LEFTCTRL, false}}));
+
+    sent.clear();               // display-only key sends nothing
+    row.onPress(350, 30);
+    row.onRelease();
+    CHECK(sent.empty());
+
+    Framebuffer fb(400, 60);    // renders something on every key
+    row.render(fb);
+    int lit = 0;
+    for (int i = 0; i < 400 * 60; ++i)
+        if (fb.data()[i] != theme::bg) ++lit;
+    CHECK(lit > 500);
+    (void)sizeof(K);
+}
+
+static void test_calm_presets() {
+    Config cfg;
+    for (const char* name : {"matrix", "life", "stars"}) {
+        Framebuffer fb(1500, 60);
+        NullAudioSource src;
+        VizRenderer viz(1500, 60, cfg, name);
+        CHECK(viz.presetName() == name);
+        renderFrames(viz, src, fb, 400);
+        std::vector<uint32_t> before(fb.data(), fb.data() + 1500 * 60);
+        int lit = 0;
+        for (uint32_t c : before) lit += c != 0xFF000000;
+        renderFrames(viz, src, fb, 30);
+        int moved = 0;
+        for (int i = 0; i < 1500 * 60; ++i) moved += fb.data()[i] != before[i];
+        printf("%s: %d lit, %d changed in 30 frames\n", name, lit, moved);
+        CHECK(lit > 150);
+        CHECK(moved > 50);
+    }
+}
+
+static void test_deck() {
+    EventLoop loop;
+    Config cfg;
+    std::unique_ptr<AudioSource> src = std::make_unique<NullAudioSource>();
+    FakeMprisClient* fake = nullptr;
+    ModeContext ctx{loop, cfg, src, nullptr};
+    ctx.mpris_factory = [&fake] {
+        auto m = std::make_unique<FakeMprisClient>();
+        fake = m.get();
+        return m;
+    };
+    std::unique_ptr<Mode> deck = createMode("deck", ctx);
+    CHECK(deck != nullptr);
+    if (!deck) return;
+    auto widgets = deck->widgets();
+    CHECK_EQ(widgets.size(), 3u);
+    CHECK(widgets[0]->name() == "playpause");
+
+    CHECK(deck->handleCommand("preset") == "ok " + cfg.viz_preset);
+    CHECK(deck->handleCommand("preset matrix") == "ok matrix");
+
+    // Long press walks the cycle and wraps. Only presets from the list.
+    auto* viz = dynamic_cast<VizWidget*>(widgets[2]);
+    CHECK(viz != nullptr);
+    if (!viz) return;
+    Framebuffer fb(600, 60);
+    viz->render(fb);  // creates the renderer
+    deck->handleCommand("preset matrix");
+    viz->onLongPress(10, 30);
+    CHECK(viz->presetName() == "life");
+    viz->onLongPress(10, 30);
+    CHECK(viz->presetName() == "stars");
+    viz->onLongPress(10, 30);
+    CHECK(viz->presetName() == "matrix");
+}
+
+static void test_controls_config() {
+    const char* path = "/tmp/tbfx-test-controls.toml";
+    FILE* f = fopen(path, "w");
+    CHECK(f != nullptr);
+    if (!f) return;
+    fputs("[[controls]]\n"
+          "label = \"A\"\nkeys = [\"leftctrl\", \"A\"]\nwidth = 3\n"
+          "[[controls]]\n"
+          "label = \"BAD\"\nkeys = [\"NOSUCHKEY\"]\n"
+          "[[controls]]\n"
+          "show = \"nonsense\"\n"
+          "[[controls]]\n"
+          "label = \"NONE\"\n"
+          "[[controls]]\n"
+          "show = \"bar\"\n"
+          "[[controls]]\n"
+          "show = \"clock\"\n", f);
+    fclose(f);
+    Config cfg = Config::load(path);
+    CHECK_EQ(cfg.controls.size(), 6u);
+    CHECK_EQ(cfg.controls[0].width, 3);
+    CHECK_EQ(cfg.controls[0].keys.size(), 2u);
+
+    EventLoop loop;
+    std::unique_ptr<AudioSource> src;
+    ModeContext ctx{loop, cfg, src, nullptr};
+    std::vector<std::pair<int, bool>> sent;
+    ctx.key_sink = [&](int c, bool d) { sent.push_back({c, d}); };
+    int level = 2, cycles = 0;
+    ctx.bar_level = [&] { return level; };
+    ctx.cycle_bar = [&] { ++cycles; level = BarBacklight::nextLevel(level); };
+
+    std::unique_ptr<Mode> mode = createMode("controls", ctx);
+    CHECK(mode != nullptr);
+    if (!mode) return;
+    auto* row = dynamic_cast<KeyRowWidget*>(mode->widgets()[0]);
+    CHECK(row != nullptr);
+    if (!row) return;
+    CHECK_EQ(row->keyCount(), 3);  // the three bad entries are skipped
+
+    row->setAllocatedWidth(500);   // widths 3 + 2 + 2 of 7
+    row->onPress(50, 30);          // lowercase names resolve too
+    row->onRelease();
+    CHECK((sent == std::vector<std::pair<int, bool>>{
+        {KEY_LEFTCTRL, true}, {KEY_A, true},
+        {KEY_A, false}, {KEY_LEFTCTRL, false}}));
+
+    row->onPress(250, 30);         // BAR: full -> dim -> full, never off
+    row->onRelease();
+    CHECK_EQ(level, 1);
+    row->onPress(250, 30);
+    row->onRelease();
+    CHECK_EQ(level, 2);
+    CHECK_EQ(cycles, 2);
+    CHECK_EQ(BarBacklight::nextLevel(0), 2);
+
+    Config def;                    // the shipped row builds without skips
+    ModeContext ctx2{loop, def, src, nullptr};
+    std::unique_ptr<Mode> m2 = createMode("controls", ctx2);
+    auto* row2 = dynamic_cast<KeyRowWidget*>(m2->widgets()[0]);
+    CHECK(row2 && row2->keyCount() == static_cast<int>(def.controls.size()));
+}
+
 int main() {
     test_gestures();
     test_volume_drag();
@@ -915,6 +987,11 @@ int main() {
     test_seek_drag();
     test_brightness_slider();
     test_presets();
+    test_fn_tracker();
+    test_key_row();
+    test_calm_presets();
+    test_deck();
+    test_controls_config();
     test_config();
     test_theme();
     test_modes();

@@ -54,6 +54,15 @@ void SliderWidget::drawSlider(Framebuffer& fb) {
     int track_w = w - TRACK_X0 - TRACK_PAD;
     if (track_w <= 0) return;
     int track_y = (h - TRACK_H) / 2;
+    if (theme::terminal) {  // level meter of solid blocks, no knob
+        const int pitch = 11, bh = h - 24;
+        const int blocks = track_w / pitch;
+        const int lit = blocks * std::min(percent_, max_percent_) / max_percent_;
+        for (int i = 0; i < blocks; ++i)
+            fb.fillRect(TRACK_X0 + i * pitch, 12, pitch - 3, bh,
+                        i < lit ? fillColor() : theme::bar_bg);
+        return;
+    }
     fb.fillRoundRect(TRACK_X0, track_y, track_w, TRACK_H, 8, theme::bar_bg);
     int fill = track_w * std::min(percent_, max_percent_) / max_percent_;
     if (fill > 0)
@@ -62,8 +71,12 @@ void SliderWidget::drawSlider(Framebuffer& fb) {
     // Handle knob: bright dot with a subtle outline at the fill edge
     int kx = TRACK_X0 + fill;
     int ky = h / 2;
-    fb.fillCircle(kx, ky, 10, theme::green_dark);  // outline
-    fb.fillCircle(kx, ky, 8, knobColor());         // dot
+    if (theme::terminal) {  // block cursor instead of a round knob
+        fb.fillRect(kx - 5, ky - 12, 10, 24, knobColor());
+    } else {
+        fb.fillCircle(kx, ky, 10, theme::green_dark);  // outline
+        fb.fillCircle(kx, ky, 8, knobColor());         // dot
+    }
 
     // Percent readout on the track's right end (dark backdrop so the
     // knob can't swallow it at high values)

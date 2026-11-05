@@ -19,6 +19,15 @@ struct ModeContext {
     std::unique_ptr<AudioSource>& audio;  // consumed by the media center
     // Default (nullptr) means: create the real D-Bus client.
     std::function<std::unique_ptr<MprisClient>()> mpris_factory;
+    // Real key events from the Fn layers; unset in headless runs.
+    std::function<void(int code, bool down)> key_sink = nullptr;
+    // Switch between the terminal themes. Filled in by ModeManager.
+    std::function<void()> toggle_theme = nullptr;
+    // Touch Bar backlight for the BAR button; unset in headless runs.
+    std::function<void()> cycle_bar = nullptr;
+    std::function<int()> bar_level = nullptr;
+    // Remember a picked theme; unset in headless runs.
+    std::function<void(const std::string&)> on_theme_saved = nullptr;
 };
 
 // An exclusive full-bar mode. Modes own their widgets, self-register

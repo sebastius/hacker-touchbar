@@ -24,6 +24,7 @@ namespace theme {
     uint32_t accent      = 0xFFFFFFFF;  // hot/active highlight
     uint32_t zone_border = 0xFF004400;  // 1px frame around widget zones
     bool     zone_frame  = false;       // zone frames off by default
+    bool     terminal    = false;
     uint32_t generation  = 0;           // bumps on every retint
     std::string current_name;
 
@@ -48,7 +49,10 @@ namespace theme {
         accent      = t.accent;
         zone_border = t.zone_border;
         zone_frame  = t.zone_frame;
+        terminal    = t.terminal;
+        Framebuffer::square_corners = t.terminal;
         current_name = name;
+        ++generation;  // static widgets must pick up the new palette
     }
 
     void retint(float hue) {
@@ -76,8 +80,33 @@ namespace theme {
         zone_border = hsv_to_rgb(hue, 0.83f * s, 0.42f);
     }
 
+    void crt(Framebuffer& fb) {
+        const int w = fb.width(), h = fb.height();
+        const uint32_t pr = (text >> 16) & 0xFF, pg = (text >> 8) & 0xFF,
+                       pb = text & 0xFF;
+        uint32_t* px = fb.data();
+        for (int y = 0; y < h; ++y) {
+            const uint32_t row = (y & 1) ? 180 : 255;
+            for (int x = 0; x < w; ++x, ++px) {
+                const uint32_t c = *px;
+                uint32_t v = (c >> 16) & 0xFF;
+                if (((c >> 8) & 0xFF) > v) v = (c >> 8) & 0xFF;
+                if ((c & 0xFF) > v) v = c & 0xFF;
+                if (!v) continue;
+                v = v * row / 255;
+                *px = 0xFF000000u | ((pr * v / 255) << 16) |
+                      ((pg * v / 255) << 8) | (pb * v / 255);
+            }
+        }
+    }
+
     void drawButton(Framebuffer& fb, int x, int y, int w, int h,
                     uint32_t border) {
+        if (terminal) {  // plain full-height cell, like a TUI box
+            fb.fillRect(x, 1, w, fb.height() - 2, bg);
+            fb.drawRect(x, 1, w, fb.height() - 2, border ? border : btn_border);
+            return;
+        }
         const int r = btn_radius < (h - 2) / 2 ? btn_radius : (h - 2) / 2;
         fb.fillRoundRect(x, y, w, h, r, btn);
         // Bezel: light catches the top edge, shade pools at the bottom.
@@ -92,7 +121,35 @@ namespace theme {
     }
 }
 
+// One phosphor at several brightnesses; black background, no bezels.
+static Theme terminalTheme(float hue, float sat) {
+    Theme t;
+    t.terminal    = true;
+    t.zone_frame  = false;
+    t.bg          = 0xFF000000;
+    t.green       = hsv_to_rgb(hue, sat, 1.00f);
+    t.green_dim   = hsv_to_rgb(hue, sat, 0.70f);
+    t.green_dark  = hsv_to_rgb(hue, sat, 0.28f);
+    t.green_bg    = hsv_to_rgb(hue, sat, 0.08f);
+    t.panel       = hsv_to_rgb(hue, sat, 0.06f);
+    t.btn         = 0xFF000000;
+    t.btn_border  = hsv_to_rgb(hue, sat, 0.45f);
+    t.text        = hsv_to_rgb(hue, sat, 1.00f);
+    t.text_dim    = hsv_to_rgb(hue, sat, 0.65f);
+    t.text_muted  = hsv_to_rgb(hue, sat, 0.35f);
+    t.bar_bg      = hsv_to_rgb(hue, sat, 0.12f);
+    t.red         = hsv_to_rgb(hue, sat, 1.00f);
+    t.yellow      = hsv_to_rgb(hue, sat, 1.00f);
+    t.separator   = hsv_to_rgb(hue, sat, 0.28f);
+    t.accent      = hsv_to_rgb(hue, sat, 1.00f);
+    t.zone_border = hsv_to_rgb(hue, sat, 0.45f);
+    return t;
+}
+
 Theme Theme::fromName(const std::string& name) {
+    if (name == "green") return terminalTheme(120.0f, 0.80f);
+    if (name == "amber") return terminalTheme(40.0f, 1.00f);
+
     if (name == "oel") {
         // Pioneer DEH OEL: monochrome electric cyan on black (hue
         // 190-202, same family as the dolphins/spectrum presets).

@@ -10,6 +10,8 @@ class Framebuffer;
 // theme::apply installs it.
 //
 //   "default" — Matrix / Omarchy Aether neon green
+//   "green"   — monochrome terminal, green phosphor
+//   "amber"   — monochrome terminal, amber phosphor
 //   "oel"     — 2000s Pioneer head-unit OEL: monochrome cyan-on-black,
 //               1px display-window frames around widget zones
 struct Theme {
@@ -36,6 +38,7 @@ struct Theme {
     uint32_t accent;       // hot/active highlight (pulsing knob, ...)
     uint32_t zone_border;  // 1px frame around widget zones
     bool     zone_frame;   // draw the zone frames (OEL display windows)
+    bool     terminal = false;  // phosphor CRT look ("green", "amber")
 
     // Unknown names fall back to "default" with a warning.
     static Theme fromName(const std::string& name);
@@ -61,6 +64,7 @@ namespace theme {
     extern uint32_t accent;
     extern uint32_t zone_border;
     extern bool     zone_frame;
+    extern bool     terminal;
 
     void apply(const Theme& t);
     void apply(const Theme& t, const std::string& name);
@@ -86,6 +90,11 @@ namespace theme {
     // even on the monochrome OEL. border=0 uses theme::btn_border.
     void drawButton(Framebuffer& fb, int x, int y, int w, int h,
                     uint32_t border = 0);
+
+    // Terminal themes only: recolors a finished widget to one phosphor
+    // color by brightness and darkens every other row into scanlines,
+    // so presets and album art join the look without knowing about it.
+    void crt(Framebuffer& fb);
 
     // UI constants (not themed)
     constexpr int corner_radius    = 8;

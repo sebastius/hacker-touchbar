@@ -22,6 +22,11 @@ ModeManager::ModeManager(EventLoop& loop, LayoutEngine& layout,
 {
     if (order_.empty()) order_.push_back("mediacenter");
 
+    on_theme_saved_ = ctx.on_theme_saved;
+    ctx.toggle_theme = [this] {
+        setTheme(theme::current_name == "amber" ? "green" : "amber");
+    };
+
     // Instantiate configured modes from the registry.
     for (const std::string& name : order_) {
         std::unique_ptr<Mode> mode = createMode(name, ctx);
@@ -43,6 +48,12 @@ ModeManager::ModeManager(EventLoop& loop, LayoutEngine& layout,
         });
         mode->setCycleHook([this] { cycle(+1); });
         modes_[name] = std::move(mode);
+    }
+
+    // Fn layers: reachable by key only, so never added to order_.
+    for (const char* name : {"fkeys", "controls"}) {
+        if (std::unique_ptr<Mode> mode = createMode(name, ctx))
+            modes_[name] = std::move(mode);
     }
 
     // Per-widget timers tick regardless of which mode is visible.
@@ -108,7 +119,32 @@ void ModeManager::cycle(int dir) {
     }
 }
 
+void ModeManager::applyLayer() {
+    setMode(fn_held_ ? "fkeys" : controls_on_ ? "controls" : base_);
+}
+
+void ModeManager::setFnHeld(bool held) {
+    if (held && !layerActive()) base_ = current_;
+    fn_held_ = held;
+    applyLayer();
+}
+
+void ModeManager::toggleControls() {
+    if (!layerActive()) base_ = current_;
+    controls_on_ = !controls_on_;
+    applyLayer();
+}
+
+bool ModeManager::setTheme(const std::string& name) {
+    if (name != "green" && name != "amber") return false;
+    theme::apply(Theme::fromName(name), name);
+    if (on_theme_saved_) on_theme_saved_(name);
+    sched_.markDirty();
+    return true;
+}
+
 void ModeManager::notifyTrackChanged() {
+    if (layerActive()) return;  // never pull keys out from under the user
     // Home mode is the media center: jump there and flash the track.
     for (const auto& name : order_) {
         auto it = modes_.find(name);
@@ -133,6 +169,11 @@ std::string ModeManager::handleCommand(const std::string& cmd) {
     }
     if (cmd == "mode")
         return "ok " + current_;
+
+    if (cmd.rfind("theme ", 0) == 0) {
+        std::string name = cmd.substr(6);
+        return setTheme(name) ? "ok " + name : "err usage: theme green|amber";
+    }
 
     // "hue" reports, "hue <main> [<accent>]" sets the user's manual
     // colors (0-360, past 360 = white), applies them live, and

@@ -36,7 +36,6 @@ add_library(tbfx_core OBJECT
     src/audio/null_audio_source.cpp
     src/viz/viz_renderer.cpp
     src/viz/preset_registry.cpp
-    src/viz/lkd.cpp
     ${PRESET_SOURCES}
     src/media/mpris_dbus_client.cpp
     src/media/art_fetcher.cpp
@@ -46,6 +45,8 @@ add_library(tbfx_core OBJECT
     src/mode/mediacenter_mode.cpp
     src/mode/sliders_mode.cpp
     src/mode/colors_mode.cpp
+    src/mode/keys_mode.cpp
+    src/mode/deck_mode.cpp
     src/ipc/ipc_server.cpp
     src/ipc/http_bridge.cpp
     src/widget/widget.cpp
@@ -64,9 +65,14 @@ add_library(tbfx_core OBJECT
     src/widget/builtin/brightness_widget.cpp
     src/widget/builtin/hue_slider_widget.cpp
     src/widget/builtin/viz_widget.cpp
+    src/widget/builtin/key_row_widget.cpp
+    src/widget/builtin/play_pause_widget.cpp
     src/input/touch_input.cpp
+    src/input/fn_watcher.cpp
+    src/input/virtual_keyboard.cpp
     src/util/log.cpp
     src/util/timer_fd.cpp
+    src/util/bar_backlight.cpp
 )
 
 target_include_directories(tbfx_core PUBLIC
@@ -111,6 +117,3 @@ add_test(NAME unit COMMAND touchbar-fx-test)
 
 install(TARGETS touchbar-fx touchbar-fxctl DESTINATION bin)
 
-# Pioneer OEL clips for the "pioneer" preset (decoded at runtime by
-# src/viz/lkd.cpp; override location with $TOUCHBAR_FX_CLIP_DIR).
-install(DIRECTORY assets/clips DESTINATION share/touchbar-fx)

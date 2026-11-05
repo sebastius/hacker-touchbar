@@ -1,0 +1,68 @@
+# Copy to ~/.config/touchbar-fx/config.toml (install.sh does this once).
+# Restart after changes: sudo systemctl restart touchbar-fx
+
+[ui]
+theme = "amber"          # "amber" or "green"; the bar's own button overrides this
+
+[modes]
+order = ["deck"]         # play/pause, volume, animation
+
+[visualizer]
+preset = "matrix"        # first animation after a start
+rotate_seconds = 0       # 0 = stay on one animation
+cycle = ["matrix", "life", "stars"]   # long press steps through these
+
+# The row a quick Fn tap shows. keys are Linux key names without KEY_,
+# see /usr/include/linux/input-event-codes.h. width is relative (default 2).
+# show = "bar", "theme", "clock" or "battery" gives a special button.
+
+[[controls]]
+label = "BRI-"
+keys = ["BRIGHTNESSDOWN"]
+
+[[controls]]
+label = "BRI+"
+keys = ["BRIGHTNESSUP"]
+
+[[controls]]
+label = "<<"
+keys = ["PREVIOUSSONG"]
+
+[[controls]]
+label = "PLAY"
+keys = ["PLAYPAUSE"]
+
+[[controls]]
+label = ">>"
+keys = ["NEXTSONG"]
+
+[[controls]]
+label = "MUTE"
+keys = ["MUTE"]
+
+[[controls]]
+label = "VOL-"
+keys = ["VOLUMEDOWN"]
+
+[[controls]]
+label = "VOL+"
+keys = ["VOLUMEUP"]
+
+[[controls]]
+label = ">_TERM"
+keys = ["LEFTCTRL", "LEFTALT", "T"]
+width = 3
+
+[[controls]]
+show = "bar"
+
+[[controls]]
+show = "theme"
+width = 3
+
+[[controls]]
+show = "clock"
+width = 3
+
+[[controls]]
+show = "battery"

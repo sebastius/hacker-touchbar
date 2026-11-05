@@ -13,7 +13,7 @@ class EventLoop;
 //
 // Protocol: GET /<command with / as word separator>, e.g.
 //   GET /hue/190/12      -> handler_("hue 190 12")
-//   GET /preset/penguin  -> handler_("preset penguin")
+//   GET /preset/matrix   -> handler_("preset matrix")
 // Reply: 200 text/plain with the handler's answer.
 class HttpBridge {
 public:

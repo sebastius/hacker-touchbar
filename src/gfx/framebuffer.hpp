@@ -9,6 +9,9 @@ class Framebuffer {
 public:
     Framebuffer(int width, int height);
 
+    // Terminal themes: round rects draw square, for every widget at once.
+    static bool square_corners;
+
     void clear(uint32_t color = 0xFF000000);
     void setPixel(int x, int y, uint32_t color);
     uint32_t getPixel(int x, int y) const;

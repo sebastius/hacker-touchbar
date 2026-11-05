@@ -1,0 +1,27 @@
+# Template: install.sh fills in @UID@ and @GID@.
+# Runs touchbar-fx while that user is logged in. It starts with that
+# user's session because audio and MPRIS live there; before login and
+# after logout tiny-dfr keeps the bar.
+[Unit]
+Description=touchbar-fx Touch Bar animation and controls
+After=user@@UID@.service
+BindsTo=user@@UID@.service
+# Keeps failing: give the bar back rather than leave it dark.
+StartLimitIntervalSec=60
+StartLimitBurst=10
+OnFailure=tiny-dfr.service
+
+[Service]
+# The daemon needs root for DRM master and finds the user's config,
+# audio and session bus through the variables sudo would set.
+Environment=SUDO_UID=@UID@ SUDO_GID=@GID@
+ExecStartPre=-/usr/bin/udevadm settle --timeout=10
+ExecStart=/usr/local/bin/touchbar-fx
+# Whatever stopped it, the bar goes back. Starting touchbar-fx stops this again.
+ExecStopPost=-/usr/bin/systemctl --no-block start tiny-dfr.service
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+
+[Install]
+WantedBy=user@@UID@.service

@@ -1,3 +1,5 @@
+#include <cstdlib>
+#include <unistd.h>
 #include "media/art_fetcher.hpp"
 #include "engine/event_loop.hpp"
 #include "util/log.hpp"
@@ -86,9 +88,24 @@ void ArtFetcher::workerMain(const std::shared_ptr<State>& st) {
                  quoted.c_str(), kArtSize, kArtSize, kArtSize, kArtSize,
                  kArtSize, kArtSize);
 
+        // Started via sudo: fetch and decode untrusted covers as the
+        // invoking user, never as root.
+        std::string shell_cmd = cmd;
+        const char* sudo_uid = getenv("SUDO_UID");
+        const char* sudo_gid = getenv("SUDO_GID");
+        if (getuid() == 0 && sudo_uid && sudo_gid) {
+            std::string inner = "'";
+            for (char c : shell_cmd)
+                inner += (c == '\'') ? "'\\''" : std::string(1, c);
+            inner += "'";
+            shell_cmd = std::string("setpriv --reuid=") + sudo_uid +
+                        " --regid=" + sudo_gid +
+                        " --clear-groups sh -c " + inner;
+        }
+
         auto result = std::make_unique<ArtAnalysis>();
         bool ok = false;
-        if (FILE* p = popen(cmd, "r")) {
+        if (FILE* p = popen(shell_cmd.c_str(), "r")) {
             const size_t want = kArtSize * kArtSize * 3;
             std::vector<uint8_t> buf(want * 2);
             size_t got = 0;

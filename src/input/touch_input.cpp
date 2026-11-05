@@ -226,6 +226,7 @@ void TouchInput::recordStart(int x, int y) {
         down_widget_ && down_widget_->dragCapableAt(down_local_x_, y);
     dragging_ = false;
     gesture_fired_ = false;
+    if (down_widget_) down_widget_->onPress(down_local_x_, y);
     if (longpress_fd_ >= 0)
         timerfd_set_ms(longpress_fd_, LONG_PRESS_MS, false);
     log_debug("Touch down at (%d, %d)%s", x, y,
@@ -272,6 +273,7 @@ void TouchInput::onFingerUp() {
     state_ = State::Idle;
     if (longpress_fd_ >= 0)
         timerfd_set_ms(longpress_fd_, 0, false);  // disarm
+    if (down_widget_) down_widget_->onRelease();
 
     int x = cur_x_;
     int y = cur_y_;

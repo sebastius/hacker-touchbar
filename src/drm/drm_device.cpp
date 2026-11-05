@@ -67,8 +67,8 @@ bool DrmDevice::tryOpen(const char* path) {
             conn->count_modes > 0) {
 
             drmModeModeInfo* m = &conn->modes[0];
-            bool is_tb = (m->hdisplay == 2170 && m->vdisplay == 60) ||
-                         (m->hdisplay == 60 && m->vdisplay == 2170);
+            bool is_tb = ((m->hdisplay == 2170 || m->hdisplay == 2008) && m->vdisplay == 60) ||
+                         (m->hdisplay == 60 && (m->vdisplay == 2170 || m->vdisplay == 2008));
             if (is_tb) {
                 hw_width_ = m->hdisplay;
                 hw_height_ = m->vdisplay;

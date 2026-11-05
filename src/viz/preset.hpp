@@ -29,6 +29,6 @@ public:
     virtual void onLongPress(int x, int y) { (void)x; (void)y; }
 
     // Test/diagnostic hook: how many actors are currently airborne
-    // (e.g. penguins mid-jump). 0 for presets without actors.
+    // (e.g. mid-jump). 0 for presets without actors.
     virtual int airborneCount() const { return 0; }
 };

@@ -24,6 +24,12 @@ public:
     // Touch input (coordinates local to this widget).
     virtual void onTap(int x, int y) { (void)x; (void)y; }
 
+    // Raw finger down/up, before any tap or drag is decided. Release
+    // always reaches the widget that got the press, even if the layout
+    // changed under the finger, so real keys can't stick.
+    virtual void onPress(int x, int y) { (void)x; (void)y; }
+    virtual void onRelease() {}
+
     // Long-press (>= TouchInput's LONG_PRESS_MS with the finger held
     // within tap slop). Fires once while the finger is still down; the
     // subsequent release does NOT also fire a tap.

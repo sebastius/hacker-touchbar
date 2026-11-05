@@ -1,0 +1,26 @@
+#!/bin/sh
+# Installed to /usr/lib/systemd/system-sleep/touchbar-fx.
+#
+# The t2 driver re-registers the Touch Bar on resume, which leaves a
+# running daemon with a dead display and makes udev start tiny-dfr. So
+# stop touchbar-fx before sleep and start it again after; on start it
+# takes the bar back from tiny-dfr. Only if it was running before.
+flag=/run/touchbar-fx.was-active
+
+case "$1" in
+pre)
+    if systemctl is-active --quiet touchbar-fx.service; then
+        touch "$flag"
+        systemctl stop touchbar-fx.service
+        systemctl stop tiny-dfr.service  # the unit just handed the bar back
+    fi
+    ;;
+post)
+    if [ -e "$flag" ]; then
+        rm -f "$flag"
+        # No waiting here: the unit settles udev and retries by itself.
+        systemctl --no-block start touchbar-fx.service
+    fi
+    ;;
+esac
+exit 0

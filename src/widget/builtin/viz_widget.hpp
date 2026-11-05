@@ -46,6 +46,11 @@ public:
     void cyclePreset(int dir);                 // manual: pauses rotation
     std::string presetName() const;
 
+    // Deck mode: a long press moves through [visualizer] cycle instead
+    // of going to the preset.
+    void setCycleOnLongPress(bool on) { cycle_on_long_press_ = on; }
+    void nextInCycle();
+
 private:
     void ensureRenderer(int w, int h);
     void drawOverlay(Framebuffer& fb);
@@ -58,6 +63,7 @@ private:
     std::vector<float> buf_;
 
     MprisClient* mpris_ = nullptr;
+    bool cycle_on_long_press_ = false;
 
     // preset state (applied to viz_ lazily, before it exists)
     std::string pending_preset_;
