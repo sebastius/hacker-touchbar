@@ -1,5 +1,11 @@
 # Hacker Touchbar
 
+> [!WARNING]
+> This code and its documentation were written by AI and have only been tested
+> briefly on one machine. Use it at your own risk, especially since it runs as
+> root. This is a personal project: don't expect much follow-up on issues or
+> pull requests.
+
 A retro terminal for the Touch Bar on Intel MacBooks with a T2 chip running
 Linux: amber or green phosphor, calm pixel animations, a play/pause key, a
 volume meter, and real keys one tap away.

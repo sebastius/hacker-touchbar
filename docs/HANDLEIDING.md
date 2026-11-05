@@ -1,5 +1,11 @@
 # Handleiding Hacker Touchbar
 
+> [!WARNING]
+> Deze code en documentatie zijn geschreven door AI en maar kort getest op één
+> machine. Gebruik is op eigen risico, zeker omdat het programma als root draait.
+> Dit is een persoonlijk project: verwacht niet veel opvolging van issues of pull
+> requests.
+
 Hacker Touchbar verandert de Touch Bar van een Intel MacBook met T2-chip onder
 Linux in een kleine retroterminal: amber of groen, met rustige animaties en
 gewone knoppen onder de Fn-toets.
