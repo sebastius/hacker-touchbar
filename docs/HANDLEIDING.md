@@ -7,8 +7,8 @@
 > requests.
 
 Hacker Touchbar verandert de Touch Bar van een Intel MacBook met T2-chip onder
-Linux in een kleine retroterminal: amber of groen, met rustige animaties en
-gewone knoppen onder de Fn-toets.
+Linux in een kleine retroterminal: je eigen knoppen in amber of groen, over een
+rustige animatie, met de F-toetsen onder de Fn-toets.
 
 Getest op een MacBookPro16,2 (13 inch, 2020) met Ubuntu 26.04 van
 [t2linux](https://wiki.t2linux.org), GNOME op Wayland en kernel 7.3.1-2-t2.
@@ -51,30 +51,30 @@ is. Daarna verschijnt de animatie op de balk.
 
 | Wat je doet | Wat er gebeurt |
 |---|---|
-| Tik op de play/pauze-knop | Muziek of video start of pauzeert |
-| Sleep over de volumebalk | Volume verandert |
-| Tik op de luidspreker | Geluid uit of aan |
-| Druk lang op de animatie | Volgende animatie |
-| Tik op de animatie | Extra druppels, cellen of een vallende ster |
+| Tik op een knop | De knop stuurt zijn toets; ingedrukt houden herhaalt |
+| Tik op `PLAY` of `PAUSE` | Muziek of video start of pauzeert |
 | Houd Fn ingedrukt | F1 t/m F12 |
-| Tik kort op Fn | Je eigen knoppenrij aan of uit |
 
-In de knoppenrij zitten ook twee speciale knoppen:
+In de knoppenrij staan de DOS-smileys ☺ en ☻ voor een donkerder en lichter scherm, • om het geluid uit te zetten, ♪ en ♫ voor zachter en harder, en `>_`
+opent een terminal. De knop `PLAY` wordt `PAUSE` zolang er iets speelt. Verder
+zitten er twee speciale knoppen in:
 
-- **`AMBER` of `GREEN`** wisselt de kleur.
-- **`BAR:2` of `BAR:1`** wisselt tussen een volle en een gedimde balk.
+- **Het gekleurde bolletje** wisselt naar de kleur van dat bolletje.
+- **`▬` of `_`** wisselt tussen een volle (`▬`) en een gedimde (`_`) balk.
 
 Beide keuzes blijven bewaard. De balk uitzetten kan niet met de knop, omdat je
 hem dan niet meer ziet.
 
 ## Animaties
 
-- **matrix:** langzaam vallende code.
-- **life:** Conway's Game of Life, live berekend. Op de beat, bij een tik en af
-  en toe willekeurig komen er cellen bij, zodat het patroon niet stilvalt.
-- **stars:** een trage sterrenhemel met af en toe een vallende ster.
+Achter de knoppen loopt een rustige animatie over de hele breedte:
 
-Alle animaties lopen ook zonder muziek door. Muziek geeft alleen kleine accenten.
+- **matrix:** langzaam vallende code.
+- **life:** Conway's Game of Life, live berekend. Af en toe komen er cellen bij,
+  zodat het patroon niet stilvalt.
+- **stars:** een trage sterrenhemel.
+
+Achter de knoppen reageren ze niet op muziek.
 
 ## Instellingen aanpassen
 
@@ -89,26 +89,34 @@ sudo systemctl restart touchbar-fx
 
 Hoe je knoppen aanpast, staat in [Zelf knoppen maken](#zelf-knoppen-maken).
 
-### Kleur en animaties
+### Kleur en animatie
 
 ```toml
 [ui]
 theme = "amber"
-
-[visualizer]
-preset = "matrix"
-cycle = ["matrix", "life", "stars"]
+key_background = "matrix"
 ```
 
-- **`theme`:** `amber` of `green`. Een keuze via de knop op de balk gaat hier
+- **`theme`:** `amber` of `green`. Een keuze via het bolletje op de balk gaat hier
   boven.
-- **`preset`:** de animatie waarmee het programma start. Wisselen met lang drukken
-  wordt niet bewaard.
-- **`cycle`:** de animaties waar je met lang drukken langs gaat.
+- **`key_background`:** `matrix`, `life`, `stars`, of `""` voor een zwarte balk.
+
+### Visualizer
+
+De oude balk met play/pauze, volumeregelaar en een animatie die op muziek reageert,
+zit nog in het programma. Die zet je aan met:
+
+```toml
+[modes]
+order = ["deck"]
+```
+
+Een korte tik op Fn toont dan je knoppenrij. Lang drukken op de animatie wisselt
+tussen de animaties in `cycle` onder `[visualizer]`.
 
 ## Zelf knoppen maken
 
-De rij onder een korte tik op Fn staat in `~/.config/touchbar-fx/config.toml`.
+Je knoppenrij staat in `~/.config/touchbar-fx/config.toml`.
 Elke knop is een blok `[[controls]]`, in dezelfde volgorde als op de balk. Zodra
 er een blok in het bestand staat, vervangt het bestand de hele standaardrij.
 
@@ -116,15 +124,15 @@ er een blok in het bestand staat, vervangt het bestand de hele standaardrij.
 [[controls]]
 label = "LOCK"
 keys = ["LEFTMETA", "L"]
-width = 2
 ```
 
 | Instelling | Betekenis |
 |---|---|
 | `label` | Tekst op de knop |
 | `keys` | Toets of toetscombinatie, zonder `KEY_` ervoor |
-| `width` | Relatieve breedte, standaard 2 |
-| `show` | Speciale knop: `bar`, `theme`, `clock` of `battery` |
+| `width` | Optioneel: minimale breedte in pixels |
+| `blink` | `true` laat het laatste teken knipperen, zoals een cursor |
+| `show` | Speciale knop: `bar`, `theme`, `playpause`, `clock` of `battery`, of `gap` voor lege ruimte |
 
 Een knop met `show` heeft geen `label` of `keys` nodig. Herstart na elke wijziging:
 
@@ -134,10 +142,72 @@ sudo systemctl restart touchbar-fx
 
 ### Breedte en tekst
 
-De breedtes zijn verhoudingen: de balk wordt verdeeld over alle knoppen samen. Met
-meer knoppen wordt dus elke knop smaller. Elke letter is 24 pixels breed en de
-balk is 2008 pixels, dus reken zo: bij een totale breedte van 28 is `width = 2`
-ongeveer 143 pixels, genoeg voor vijf letters.
+Knoppen passen zich aan hun tekst aan: elke letter is 24 pixels breed, met 16
+pixels ruimte aan beide kanten. De knoppen staan links, en een klok of batterij
+aan het eind van de rij schuift naar de rechterrand. Wil je een knop breder, geef
+dan een minimum in pixels op met `width = 200`.
+
+Passen alle knoppen niet op de balk, dan verdelen ze de breedte gelijk.
+
+### Ruimte tussen knoppen
+
+De ruimte tussen alle knoppen stel je in onder `[ui]`, van 0 tot 40 pixels:
+
+```toml
+[ui]
+key_gap = 8
+```
+
+Lucht tussen groepen is een eigen blok op de plek waar je de ruimte wilt hebben:
+
+```toml
+[[controls]]
+show = "gap"
+width = 60
+```
+
+Zonder `width` is de ruimte 40 pixels. Een `gap` is onzichtbaar en reageert niet op
+aanraking.
+
+### Animatie achter de knoppen
+
+Onder `[ui]` kun je een animatie achter beide knoppenrijen zetten. Binnen een knop
+wordt die gedimd, zodat de tekst leesbaar blijft:
+
+```toml
+[ui]
+key_background = "matrix"
+```
+
+Je kunt elke animatie gebruiken, bijvoorbeeld `life` of `stars`. Met
+`key_background = ""` wordt de achtergrond weer zwart. Deze animatie reageert niet
+op muziek.
+
+### Knipperende cursor
+
+Met `blink = true` knippert het laatste teken van een knop: een halve seconde aan
+en een halve seconde uit.
+
+```toml
+[[controls]]
+label = ">_"
+keys = ["LEFTCTRL", "LEFTALT", "T"]
+blink = true
+```
+
+### DOS-symbolen
+
+Het lettertype kent naast gewone tekens ook zes symbolen uit de oude DOS-tekenset,
+code page 437:
+
+| Code | Teken | Label in de configuratie |
+|---|---|---|
+| 01 | ☺ | `label = "\u0001"` |
+| 02 | ☻ | `label = "\u0002"` |
+| 07 | • | `label = "\u0007"` |
+| 0D | ♪ | `label = "\u000D"` |
+| 0E | ♫ | `label = "\u000E"` |
+| 16 | ▬ | `label = "\u0016"` |
 
 ### Veelgebruikte toetsnamen
 
@@ -181,7 +251,6 @@ keys = ["LEFTCTRL", "C"]
 [[controls]]
 label = "PASTE"
 keys = ["LEFTCTRL", "V"]
-width = 3
 ```
 
 Microfoon dempen:
@@ -283,13 +352,13 @@ cmake -B build && cmake --build build -j"$(nproc)"
 Maak een testconfiguratie, zodat je eigen instellingen ongemoeid blijven:
 
 ```bash
-printf '[ui]\ntheme = "amber"\n[modes]\norder = ["deck"]\n[visualizer]\npreset = "golf"\nrotate_seconds = 0\n' > /tmp/test.toml
+printf '[ui]\ntheme = "amber"\nkey_background = "golf"\n[modes]\norder = ["controls"]\n' > /tmp/test.toml
 ```
 
 Render daarna twee seconden aan beelden:
 
 ```bash
-./build/touchbar-fx --config /tmp/test.toml --dump-mode deck --dump-frames 120 --null-audio --out /tmp/frames --width 2008 --height 60
+./build/touchbar-fx --config /tmp/test.toml --dump-mode controls --dump-frames 120 --null-audio --out /tmp/frames --width 2008 --height 60
 ```
 
 De beelden staan nu als `.bmp`-bestanden in `/tmp/frames`. Zo zie je fouten voordat
@@ -304,23 +373,17 @@ Installeer de nieuwe versie:
 ./install.sh
 ```
 
-Zet de naam daarna in `cycle`, dan kun je er met lang drukken naartoe:
+Zet de naam daarna in je configuratie en herstart de service:
 
 ```toml
-[visualizer]
-cycle = ["matrix", "life", "stars", "golf"]
-```
-
-Na het herstarten van de service kun je er ook meteen naartoe springen:
-
-```bash
-touchbar-fxctl preset golf
+[ui]
+key_background = "golf"
 ```
 
 ### Wat je kunt gebruiken
 
 `draw()` wordt ongeveer 60 keer per seconde aangeroepen. Het tekengebied is 60
-pixels hoog en op de 13-inch balk ongeveer 1600 pixels breed. Gebruik altijd
+pixels hoog en op de 13-inch balk 2008 pixels breed. Gebruik altijd
 `fb.width()` en `fb.height()` in plaats van vaste getallen.
 
 | Tekenen in `fb` | Doet |
@@ -331,6 +394,9 @@ pixels hoog en op de 13-inch balk ongeveer 1600 pixels breed. Gebruik altijd
 | `drawHLine` / `drawVLine` / `drawLine` | Tekent lijnen |
 | `fillCircle(x, y, r, kleur)` | Tekent een gevulde cirkel |
 | `drawText(x, y, tekst, kleur, FontSize::Small)` | Tekent tekst, alleen ASCII |
+
+Deze muziekgegevens werken alleen in de visualizer. Achter de knoppen is er geen
+geluid, dus staat `silent()` daar altijd op `true`.
 
 | Muziek uit `viz` | Betekenis |
 |---|---|
@@ -401,7 +467,7 @@ journalctl -u touchbar-fx -b --no-pager -n 40
 | `No Touch Bar DRM device found` | Controleer of tiny-dfr los werkt, en start de laptop opnieuw op |
 | Balk blijft zwart na de slaapstand | `sudo systemctl restart touchbar-fx` |
 | Fn doet niets | Zoek in de log naar `Fn key: watching internal keyboard` |
-| Volume of play/pauze reageert niet | Controleer of je bent ingelogd; audio en mediaspeler horen bij je sessie |
+| `PLAY` volgt de muziek niet | Controleer of je bent ingelogd; je mediaspeler hoort bij je sessie |
 | Een knop ontbreekt | Zoek in de log naar `[[controls]]`, waarschijnlijk klopt een toetsnaam niet |
 
 ## Verwijderen

@@ -46,6 +46,7 @@ MediaCenterMode::MediaCenterMode(ModeContext& ctx)
     if (mpris_) {
         mpris_->init();
         transport_.setClient(mpris_.get());
+        ctx.is_playing = [this] { return mpris_->state().playing; };
         viz_.setMpris(mpris_.get());
         transport_.sync(mpris_->state());
 

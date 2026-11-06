@@ -23,6 +23,9 @@ struct ModeContext {
     std::function<void(int code, bool down)> key_sink = nullptr;
     // Switch between the terminal themes. Filled in by ModeManager.
     std::function<void()> toggle_theme = nullptr;
+    // Live player state for the PLAY/PAUSE key. Filled in by the mode
+    // that owns the MPRIS client.
+    std::function<bool()> is_playing = nullptr;
     // Touch Bar backlight for the BAR button; unset in headless runs.
     std::function<void()> cycle_bar = nullptr;
     std::function<int()> bar_level = nullptr;

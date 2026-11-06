@@ -52,6 +52,7 @@ ModeManager::ModeManager(EventLoop& loop, LayoutEngine& layout,
 
     // Fn layers: reachable by key only, so never added to order_.
     for (const char* name : {"fkeys", "controls"}) {
+        if (modes_.count(name)) continue;  // already the configured home
         if (std::unique_ptr<Mode> mode = createMode(name, ctx))
             modes_[name] = std::move(mode);
     }
@@ -130,6 +131,7 @@ void ModeManager::setFnHeld(bool held) {
 }
 
 void ModeManager::toggleControls() {
+    if (!order_.empty() && order_[0] == "controls") return;  // always showing
     if (!layerActive()) base_ = current_;
     controls_on_ = !controls_on_;
     applyLayer();

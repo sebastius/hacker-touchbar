@@ -18,6 +18,7 @@ DeckMode::DeckMode(ModeContext& ctx)
     if (mpris_) {
         mpris_->init();
         play_.setClient(mpris_.get());
+        ctx.is_playing = [this] { return mpris_->state().playing; };
         play_.sync(mpris_->state());
         mpris_->setEventCallback([this](MprisEvent) {
             play_.sync(mpris_->state());

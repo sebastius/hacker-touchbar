@@ -1,10 +1,45 @@
 #include "gfx/font.hpp"
 #include "gfx/framebuffer.hpp"
 
+// The DOS code page 437 symbols used on keys, 8x16: 01 and 02 are the
+// outline and filled smileys, 07 the bullet, 0D and 0E the single and
+// double music note, 16 (hex) the thick horizontal bar.
+static const uint8_t* cp437_glyph(char c) {
+    static const uint8_t smiley_outline[16] = {
+        0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD,
+        0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00};
+    static const uint8_t smiley_filled[16] = {
+        0x00, 0x00, 0x7E, 0xFF, 0xDB, 0xFF, 0xFF, 0xC3,
+        0xE7, 0xFF, 0xFF, 0x7E, 0x00, 0x00, 0x00, 0x00};
+    static const uint8_t bullet[16] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x3C,
+        0x3C, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    static const uint8_t note_single[16] = {
+        0x00, 0x00, 0x3F, 0x33, 0x3F, 0x30, 0x30, 0x30,
+        0x30, 0x70, 0xF0, 0xE0, 0x00, 0x00, 0x00, 0x00};
+    static const uint8_t note_double[16] = {
+        0x00, 0x00, 0x7F, 0x63, 0x7F, 0x63, 0x63, 0x63,
+        0x63, 0x67, 0xE7, 0xE6, 0xC0, 0x00, 0x00, 0x00};
+    static const uint8_t thick_bar[16] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xFE, 0xFE, 0xFE, 0xFE, 0x00, 0x00, 0x00, 0x00};
+    switch (c) {
+    case 0x01: return smiley_outline;
+    case 0x02: return smiley_filled;
+    case 0x07: return bullet;
+    case 0x0D: return note_single;
+    case 0x0E: return note_double;
+    case 0x16: return thick_bar;
+    default:   return nullptr;
+    }
+}
+
 void BitmapFont::drawChar(Framebuffer& fb, int x, int y, char c, uint32_t color) const {
-    if (c < 32 || c > 126) c = '?';
-    int idx = c - 32;
-    const uint8_t* glyph = data + idx * glyph_height * bytes_per_row;
+    const uint8_t* glyph = glyph_height == 16 ? cp437_glyph(c) : nullptr;
+    if (!glyph) {
+        if (c < 32 || c > 126) c = '?';
+        glyph = data + (c - 32) * glyph_height * bytes_per_row;
+    }
 
     for (int row = 0; row < glyph_height; ++row) {
         for (int col = 0; col < glyph_width; ++col) {

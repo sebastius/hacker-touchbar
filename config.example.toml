@@ -3,66 +3,78 @@
 
 [ui]
 theme = "amber"          # "amber" or "green"; the bar's own button overrides this
+key_gap = 4              # pixels between all keys, 0-40
+key_background = "matrix"  # animation behind the keys, "" for none
 
 [modes]
-order = ["deck"]         # play/pause, volume, animation
+order = ["controls"]     # or ["deck"]: play/pause, volume and a music visualizer
 
+# Only used by the deck mode.
 [visualizer]
 preset = "matrix"        # first animation after a start
 rotate_seconds = 0       # 0 = stay on one animation
 cycle = ["matrix", "life", "stars"]   # long press steps through these
 
-# The row a quick Fn tap shows. keys are Linux key names without KEY_,
-# see /usr/include/linux/input-event-codes.h. width is relative (default 2).
-# show = "bar", "theme", "clock" or "battery" gives a special button.
+# The key row. keys are Linux key names without KEY_,
+# see /usr/include/linux/input-event-codes.h. Keys size to their label;
+# width = N sets a minimum in pixels. "\u0001" and "\u0002" are the DOS smileys.
+# show = "bar", "theme", "playpause", "clock" or "battery" gives a special button.
+# show = "gap" adds space between groups; width = N pixels, default 40.
+# blink = true makes the last character blink.
 
 [[controls]]
-label = "BRI-"
+label = "\u0001"
 keys = ["BRIGHTNESSDOWN"]
 
 [[controls]]
-label = "BRI+"
+label = "\u0002"
 keys = ["BRIGHTNESSUP"]
-
-[[controls]]
-label = "<<"
-keys = ["PREVIOUSSONG"]
-
-[[controls]]
-label = "PLAY"
-keys = ["PLAYPAUSE"]
-
-[[controls]]
-label = ">>"
-keys = ["NEXTSONG"]
-
-[[controls]]
-label = "MUTE"
-keys = ["MUTE"]
-
-[[controls]]
-label = "VOL-"
-keys = ["VOLUMEDOWN"]
-
-[[controls]]
-label = "VOL+"
-keys = ["VOLUMEUP"]
-
-[[controls]]
-label = ">_TERM"
-keys = ["LEFTCTRL", "LEFTALT", "T"]
-width = 3
 
 [[controls]]
 show = "bar"
 
 [[controls]]
 show = "theme"
-width = 3
+
+[[controls]]
+show = "gap"
+
+[[controls]]
+label = "<<"
+keys = ["PREVIOUSSONG"]
+
+[[controls]]
+show = "playpause"
+
+[[controls]]
+label = ">>"
+keys = ["NEXTSONG"]
+
+[[controls]]
+show = "gap"
+
+[[controls]]
+label = "\u0007"
+keys = ["MUTE"]
+
+[[controls]]
+label = "\u000D"
+keys = ["VOLUMEDOWN"]
+
+[[controls]]
+label = "\u000E"
+keys = ["VOLUMEUP"]
+
+[[controls]]
+show = "gap"
+
+[[controls]]
+label = ">_"
+keys = ["LEFTCTRL", "LEFTALT", "T"]
+blink = true
 
 [[controls]]
 show = "clock"
-width = 3
 
 [[controls]]
 show = "battery"

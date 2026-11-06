@@ -5,13 +5,14 @@
 // Daemon configuration, loaded from ~/.config/touchbar-fx/config.toml.
 // Every key has a sane default; a missing or partial file is fine.
 // One button on the "controls" row. show picks what it displays:
-// "label" (the default), "clock", "battery", "theme" or "bar"; the last
-// two also act on touch. keys are Linux key names without KEY_.
+// "label" (the default), "clock", "battery", "theme", "bar",
+// "playpause" or "gap" (empty space, width pixels, default 40). keys are Linux key names without KEY_.
 struct ControlKey {
     std::string show = "label";
     std::string label;
     std::vector<std::string> keys;
-    int width = 2;
+    int width = 0;  // minimum in pixels; keys size to their content
+    bool blink = false;  // last character blinks, like a cursor
 };
 
 struct Config {
@@ -19,6 +20,8 @@ struct Config {
     std::vector<std::string> mode_order = {"mediacenter", "sliders"};
 
     // [ui]
+    int key_gap = 4;                    // pixels between keys, 0-40
+    std::string key_background;         // preset behind the key rows, "" = none
     std::string ui_theme = "default";   // "default" | "oel" | "green" | "amber"
 
     // [mediacenter] — home mode layout (transport | visualizer | volume)
@@ -34,19 +37,22 @@ struct Config {
 
     // The row a quick Fn tap shows; [[controls]] replaces it entirely.
     std::vector<ControlKey> controls = {
-        {"label", "BRI-",   {"BRIGHTNESSDOWN"}, 2},
-        {"label", "BRI+",   {"BRIGHTNESSUP"}, 2},
-        {"label", "<<",     {"PREVIOUSSONG"}, 2},
-        {"label", "PLAY",   {"PLAYPAUSE"}, 2},
-        {"label", ">>",     {"NEXTSONG"}, 2},
-        {"label", "MUTE",   {"MUTE"}, 2},
-        {"label", "VOL-",   {"VOLUMEDOWN"}, 2},
-        {"label", "VOL+",   {"VOLUMEUP"}, 2},
-        {"label", ">_TERM", {"LEFTCTRL", "LEFTALT", "T"}, 3},
-        {"bar",     "", {}, 2},
-        {"theme",   "", {}, 3},
-        {"clock",   "", {}, 3},
-        {"battery", "", {}, 2},
+        {"label", "\x01",  {"BRIGHTNESSDOWN"}, 0},
+        {"label", "\x02",  {"BRIGHTNESSUP"}, 0},
+        {"bar",     "", {}, 0},
+        {"theme",   "", {}, 0},
+        {"gap", "", {}, 0},
+        {"label", "<<",     {"PREVIOUSSONG"}, 0},
+        {"playpause", "",   {}, 0},
+        {"label", ">>",     {"NEXTSONG"}, 0},
+        {"gap", "", {}, 0},
+        {"label", "\x07",  {"MUTE"}, 0},
+        {"label", "\x0d",  {"VOLUMEDOWN"}, 0},
+        {"label", "\x0e",  {"VOLUMEUP"}, 0},
+        {"gap", "", {}, 0},
+        {"label", ">_",     {"LEFTCTRL", "LEFTALT", "T"}, 0, true},
+        {"clock",   "", {}, 0},
+        {"battery", "", {}, 0},
     };
     int viz_bars = 96;
     float viz_smoothing = 0.5f;     // 0..1, higher = snappier bars

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <fstream>
 #include "config/config.hpp"
 #include "util/log.hpp"
@@ -92,6 +93,8 @@ Config Config::load(const std::string& path) {
     }
 
     cfg.ui_theme           = tbl["ui"]["theme"].value_or(cfg.ui_theme);
+    cfg.key_background = tbl["ui"]["key_background"].value_or(cfg.key_background);
+    cfg.key_gap = std::clamp(tbl["ui"]["key_gap"].value_or(cfg.key_gap), 0, 40);
 
     cfg.mc_transport_width = tbl["mediacenter"]["transport_width"].value_or(cfg.mc_transport_width);
     cfg.mc_volume_width    = tbl["mediacenter"]["volume_width"].value_or(cfg.mc_volume_width);
@@ -107,6 +110,7 @@ Config Config::load(const std::string& path) {
             k.show = (*t)["show"].value_or(k.show);
             k.label = (*t)["label"].value_or(k.label);
             k.width = (*t)["width"].value_or(k.width);
+            k.blink = (*t)["blink"].value_or(k.blink);
             if (auto* names = (*t)["keys"].as_array())
                 for (auto& n : *names)
                     if (auto v = n.value<std::string>()) k.keys.push_back(*v);

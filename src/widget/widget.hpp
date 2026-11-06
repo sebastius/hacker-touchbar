@@ -21,6 +21,10 @@ public:
     // Render into the provided sub-framebuffer (sized to allocated width x 60).
     virtual void render(Framebuffer& fb) = 0;
 
+    // Runs after the terminal themes' phosphor pass, for the rare pixels
+    // that must keep their own color.
+    virtual void renderAfterCrt(Framebuffer& fb) { (void)fb; }
+
     // Touch input (coordinates local to this widget).
     virtual void onTap(int x, int y) { (void)x; (void)y; }
 

@@ -956,17 +956,17 @@ static void test_controls_config() {
     if (!row) return;
     CHECK_EQ(row->keyCount(), 3);  // the three bad entries are skipped
 
-    row->setAllocatedWidth(500);   // widths 3 + 2 + 2 of 7
+    row->setAllocatedWidth(500);   // A (56 px), BAR, open space, clock
     row->onPress(50, 30);          // lowercase names resolve too
     row->onRelease();
     CHECK((sent == std::vector<std::pair<int, bool>>{
         {KEY_LEFTCTRL, true}, {KEY_A, true},
         {KEY_A, false}, {KEY_LEFTCTRL, false}}));
 
-    row->onPress(250, 30);         // BAR: full -> dim -> full, never off
+    row->onPress(100, 30);         // BAR: full -> dim -> full, never off
     row->onRelease();
     CHECK_EQ(level, 1);
-    row->onPress(250, 30);
+    row->onPress(100, 30);
     row->onRelease();
     CHECK_EQ(level, 2);
     CHECK_EQ(cycles, 2);
@@ -977,6 +977,260 @@ static void test_controls_config() {
     std::unique_ptr<Mode> m2 = createMode("controls", ctx2);
     auto* row2 = dynamic_cast<KeyRowWidget*>(m2->widgets()[0]);
     CHECK(row2 && row2->keyCount() == static_cast<int>(def.controls.size()));
+}
+
+static void test_control_row_fit() {
+    Config cfg;
+    EventLoop loop;
+    std::unique_ptr<AudioSource> src;
+    ModeContext ctx{loop, cfg, src, nullptr};
+    std::unique_ptr<Mode> mode = createMode("controls", ctx);
+    auto* row = dynamic_cast<KeyRowWidget*>(mode->widgets()[0]);
+    CHECK(row != nullptr);
+    if (!row) return;
+    row->setAllocatedWidth(2008);
+    const int n = row->keyCount();
+
+    // Smiley keys are narrow, and there is open space before the clock.
+    CHECK_EQ(row->keyAt(20), 0);
+    CHECK_EQ(row->keyAt(70), 1);
+    CHECK_EQ(row->keyAt(1500), -1);
+    CHECK_EQ(row->keyAt(2000), n - 1);  // battery sits at the right edge
+
+    // Too narrow for its content: falls back to sharing the width.
+    row->setAllocatedWidth(600);
+    CHECK_EQ(row->keyAt(599), n - 1);
+    CHECK(row->keyAt(300) >= 0);
+
+    // The smileys are real glyphs, distinct from each other and from '?'.
+    Framebuffer a(8, 16), b(8, 16), q(8, 16);
+    a.clear(0); b.clear(0); q.clear(0);
+    a.drawText(0, 0, "\x01", 0xFFFFFFFF);
+    b.drawText(0, 0, "\x02", 0xFFFFFFFF);
+    q.drawText(0, 0, "?", 0xFFFFFFFF);
+    CHECK(memcmp(a.data(), b.data(), 8 * 16 * 4) != 0);
+    CHECK(memcmp(a.data(), q.data(), 8 * 16 * 4) != 0);
+    Framebuffer bar(8, 16);
+    bar.clear(0);
+    bar.drawText(0, 0, "\x16", 0xFFFFFFFF);
+    CHECK(bar.getPixel(3, 9) != 0);   // thick bar, four rows
+    CHECK(bar.getPixel(3, 5) == 0);
+    CHECK(memcmp(bar.data(), q.data(), 8 * 16 * 4) != 0);
+    Framebuffer dot(8, 16);
+    dot.clear(0);
+    dot.drawText(0, 0, "\x07", 0xFFFFFFFF);
+    CHECK(dot.getPixel(3, 7) != 0);  // bullet, centered
+    CHECK(dot.getPixel(0, 7) == 0);
+    CHECK(memcmp(dot.data(), q.data(), 8 * 16 * 4) != 0);
+
+    Framebuffer n1(8, 16), n2(8, 16);
+    n1.clear(0);
+    n2.clear(0);
+    n1.drawText(0, 0, "\x0d", 0xFFFFFFFF);
+    n2.drawText(0, 0, "\x0e", 0xFFFFFFFF);
+    CHECK(memcmp(n1.data(), n2.data(), 8 * 16 * 4) != 0);
+    CHECK(memcmp(n1.data(), q.data(), 8 * 16 * 4) != 0);
+
+    // TOML escapes reach the label untouched.
+    const char* path = "/tmp/tbfx-test-smiley.toml";
+    FILE* f = fopen(path, "w");
+    CHECK(f != nullptr);
+    if (!f) return;
+    fputs("[ui]\nkey_gap = 99\n"
+          "[[controls]]\nlabel = \"\\u0001\"\nkeys = [\"A\"]\nblink = true\n", f);
+    fclose(f);
+    Config loaded = Config::load(path);
+    CHECK(loaded.controls[0].label == "\x01");
+    CHECK(loaded.controls[0].blink);
+    CHECK_EQ(loaded.key_gap, 40);  // clamped
+}
+
+static void test_control_row_spacing() {
+    using K = KeyRowWidget::Key;
+    using G = KeyRowWidget::Show;
+    auto sink = [](int, bool) {};
+    K a{G::Label, "A", {KEY_A}, 1, nullptr};
+    K gap{G::Gap, "", {}, 1, nullptr};
+    gap.min_px = 100;
+    K b{G::Label, "B", {KEY_B}, 1, nullptr};
+
+    // A gap pushes the next key along and takes no input.
+    std::vector<std::pair<int, bool>> sent;
+    KeyRowWidget row({a, gap, b}, [&](int c, bool d) { sent.push_back({c, d}); }, true, 4);
+    row.setAllocatedWidth(600);
+    CHECK_EQ(row.keyAt(20), 0);
+    CHECK_EQ(row.keyAt(100), 1);
+    row.onPress(100, 30);
+    row.onRelease();
+    CHECK(sent.empty());
+    CHECK_EQ(row.keyAt(180), 2);
+
+    // key_gap widens the space between all keys.
+    KeyRowWidget tight({a, b}, sink, true, 0), wide({a, b}, sink, true, 40);
+    tight.setAllocatedWidth(600);
+    wide.setAllocatedWidth(600);
+    CHECK_EQ(tight.keyAt(60), 1);
+    CHECK_EQ(wide.keyAt(60), 0);
+
+    // Only the last character blinks, every second 250 ms tick.
+    K cursor{G::Label, ">_", {KEY_T}, 1, nullptr};
+    cursor.blink = true;
+    KeyRowWidget blink({cursor}, sink, true, 4);
+    blink.setAllocatedWidth(200);
+    Framebuffer on(200, 60), off(200, 60);
+    blink.render(on);
+    blink.update();
+    blink.clearDirty();
+    blink.update();
+    CHECK(blink.isDirty());
+    blink.render(off);
+    int diff = 0;
+    for (int i = 0; i < 200 * 60; ++i) diff += on.data()[i] != off.data()[i];
+    printf("cursor blink: %d pixels change\n", diff);
+    CHECK(diff > 0);
+    CHECK(diff < 150);  // the prompt itself stays put
+}
+
+static void test_key_background() {
+    using K = KeyRowWidget::Key;
+    using G = KeyRowWidget::Show;
+    Config cfg;
+    K key{G::Label, "A", {KEY_A}, 1, nullptr};
+    KeyRowWidget row({key}, [](int, bool) {}, true, 4);
+    CHECK_EQ(row.timerIntervalMs(), 250);
+    row.setBackground(cfg, "matrix");
+    CHECK_EQ(row.timerIntervalMs(), 16);
+    row.setAllocatedWidth(800);
+
+    Framebuffer fb(800, 60);
+    for (int i = 0; i < 300; ++i) row.render(fb);
+    std::vector<uint32_t> before(fb.data(), fb.data() + 800 * 60);
+    for (int i = 0; i < 30; ++i) row.render(fb);
+    int moved = 0, outside = 0;
+    for (int y = 0; y < 60; ++y)
+        for (int x = 0; x < 800; ++x) {
+            const bool diff = fb.getPixel(x, y) != before[y * 800 + x];
+            moved += diff;
+            outside += diff && x > 100;  // right of the only key
+        }
+    printf("key background: %d pixels moved, %d beside the key\n", moved, outside);
+    CHECK(outside > 50);
+
+    row.clearDirty();  // a running background keeps asking for frames
+    row.update();
+    CHECK(row.isDirty());
+}
+
+static void test_controls_as_home() {
+    Config cfg;
+    cfg.mode_order = {"controls"};
+    EventLoop loop;
+    Framebuffer composite(2008, 60);
+    DumpOutput output("/tmp/tbfx-test-frames");
+    LayoutEngine layout(2008, 60);
+    Scheduler sched(loop, output, layout, composite, 16);
+    std::unique_ptr<AudioSource> src = std::make_unique<NullAudioSource>();
+    FakeMprisClient* fake = nullptr;
+    ModeContext ctx{loop, cfg, src, nullptr};
+    ctx.mpris_factory = [&fake] {
+        auto m = std::make_unique<FakeMprisClient>();
+        fake = m.get();
+        return m;
+    };
+    ModeManager modes(loop, layout, sched, cfg, ctx);
+    CHECK(modes.start());
+    CHECK(modes.currentMode() == "controls");
+    CHECK(src != nullptr);  // no visualizer took the audio
+
+    // Hold Fn for the F keys, release to come back. A tap changes nothing.
+    modes.setFnHeld(true);
+    CHECK(modes.currentMode() == "fkeys");
+    modes.setFnHeld(false);
+    CHECK(modes.currentMode() == "controls");
+    modes.setFnHeld(true);
+    modes.toggleControls();
+    modes.setFnHeld(false);
+    CHECK(modes.currentMode() == "controls");
+    modes.setFnHeld(true);
+    modes.setFnHeld(false);
+    CHECK(modes.currentMode() == "controls");
+
+    // The PLAY/PAUSE key still has a player to watch.
+    CHECK(fake != nullptr);
+    CHECK(ctx.is_playing != nullptr);
+    if (!fake || !ctx.is_playing) return;
+    const bool before = ctx.is_playing();
+    fake->playPause();
+    CHECK(ctx.is_playing() != before);
+}
+
+static void test_bar_key_look() {
+    Config cfg;
+    cfg.controls = {{"bar", "", {}, 0}};
+    EventLoop loop;
+    std::unique_ptr<AudioSource> src;
+    ModeContext ctx{loop, cfg, src, nullptr};
+    int level = 1;
+    ctx.bar_level = [&] { return level; };
+    std::unique_ptr<Mode> mode = createMode("controls", ctx);
+    auto* row = dynamic_cast<KeyRowWidget*>(mode->widgets()[0]);
+    CHECK(row != nullptr);
+    if (!row) return;
+    row->setAllocatedWidth(100);
+    auto lit = [&] {
+        Framebuffer fb(100, 60);
+        row->render(fb);
+        int n = 0;
+        for (int i = 0; i < 100 * 60; ++i) n += fb.data()[i] == theme::text;
+        return n;
+    };
+    const int dim = lit();
+    level = 2;
+    CHECK(lit() > dim);  // thick bar lights more than the underscore
+}
+
+static void test_control_row_look() {
+    Config cfg;
+    EventLoop loop;
+    std::unique_ptr<AudioSource> src;
+    ModeContext ctx{loop, cfg, src, nullptr};
+    bool playing = false;
+    ctx.is_playing = [&] { return playing; };
+    std::unique_ptr<Mode> mode = createMode("controls", ctx);
+    auto* row = dynamic_cast<KeyRowWidget*>(mode->widgets()[0]);
+    CHECK(row != nullptr);
+    if (!row) return;
+    row->setAllocatedWidth(2008);
+
+    // The play key's label follows the player.
+    Framebuffer paused(2008, 60), active(2008, 60);
+    row->render(paused);
+    playing = true;
+    row->clearDirty();
+    row->update();
+    CHECK(row->isDirty());
+    row->render(active);
+    CHECK(memcmp(paused.data(), active.data(), 2008 * 60 * 4) != 0);
+
+    // The theme dot keeps the other theme's color through the CRT pass.
+    Theme amb = Theme::fromName("amber");
+    Theme grn = Theme::fromName("green");
+    theme::apply(amb, "amber");
+    Framebuffer fb(2008, 60);
+    row->render(fb);
+    theme::crt(fb);
+    row->renderAfterCrt(fb);
+    int dot = 0, wrong = 0;
+    for (int i = 0; i < 2008 * 60; ++i) {
+        uint32_t px = fb.data()[i];
+        const bool greenish = ((px >> 8) & 0xFF) > ((px >> 16) & 0xFF);
+        if (px == grn.text) ++dot;
+        else if (greenish) ++wrong;
+    }
+    printf("theme dot: %d bright pixels\n", dot);
+    CHECK(dot > 200);
+    theme::apply(Theme::fromName("default"));
+    (void)wrong;
 }
 
 int main() {
@@ -992,6 +1246,12 @@ int main() {
     test_calm_presets();
     test_deck();
     test_controls_config();
+    test_control_row_fit();
+    test_control_row_spacing();
+    test_key_background();
+    test_controls_as_home();
+    test_bar_key_look();
+    test_control_row_look();
     test_config();
     test_theme();
     test_modes();

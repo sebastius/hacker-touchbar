@@ -7,16 +7,15 @@
 > pull requests.
 
 A retro terminal for the Touch Bar on Intel MacBooks with a T2 chip running
-Linux: amber or green phosphor, calm pixel animations, a play/pause key, a
-volume meter, and real keys one tap away.
+Linux: your own row of keys over falling code, in amber or green phosphor, with
+F1-F12 under Fn.
 
-![Amber deck with falling code](docs/deck-amber.png)
-![Green deck](docs/deck-green.png)
+![Amber key row](docs/controls-amber.png)
+![Green key row](docs/controls-green.png)
 
-Hold Fn for F1-F12, or tap Fn for your own row of keys:
+Hold Fn for the F keys:
 
 ![F keys](docs/fkeys-amber.png)
-![Control row](docs/controls-amber.png)
 
 Nederlandstalige handleiding: [docs/HANDLEIDING.md](docs/HANDLEIDING.md).
 
@@ -26,17 +25,15 @@ touchbar-fx](#changes-from-touchbar-fx) and [License](#license).
 
 ## Features
 
-- **Deck:** one big play/pause key, a block volume meter you can drag, and an
-  animation filling the rest of the bar.
-- **Animations:** `matrix` (slow falling code), `life` (Conway's Game of Life,
-  computed live) and `stars` (slow parallax starfield). Music adds small
-  accents; nothing flashes. Long-press the animation to switch.
+- **Key row:** your own buttons, grouped and spaced as you like, over an animation
+  running across the whole bar. Choose `matrix` (slow falling code), `life`
+  (Conway's Game of Life, computed live) or `stars` (slow starfield).
 - **Terminal look:** one phosphor color, scanlines, square cells, reverse video
-  on press. Pick `amber` or `green` from the bar.
-- **Fn layers:** hold Fn for F1-F12, tap Fn to keep the control row up, tap
-  again to go back. Keys are real key events, so holding and combos work.
-- **Your own keys:** the control row comes from the config file.
-- **Bar brightness:** a `BAR` key switches between full and dim and remembers it.
+  on press, DOS code page 437 symbols. Pick `amber` or `green` from the bar.
+- **Fn:** hold Fn for F1-F12. Keys are real key events, so holding and combos
+  work.
+- **Your own keys:** the row comes from the config file.
+- **Bar brightness:** a key switches between full and dim and remembers it.
 - **Background service:** starts when you log in, stops around suspend, and
   hands the bar back to tiny-dfr when it stops.
 
@@ -83,15 +80,15 @@ To remove it again, which gives the bar back to tiny-dfr:
 
 | Action | Result |
 |---|---|
-| Tap the play/pause key | Play or pause the current player (any MPRIS player) |
-| Drag the volume meter | Set the volume |
-| Tap the speaker left of the meter | Mute |
-| Long-press the animation | Next animation |
-| Tap the animation | Add drops, cells or a shooting star |
+| Tap a key | It sends that key; hold for repeat |
+| `PLAY` / `PAUSE` key | Play or pause; follows the current player (any MPRIS player) |
 | Hold Fn | F1-F12 |
-| Tap Fn | Control row on or off |
-| `AMBER` / `GREEN` key | Switch theme, remembered |
-| `BAR:2` / `BAR:1` key | Full or dim bar, remembered |
+| Colored dot key | Switch to the theme of that color, remembered |
+| `▬` / `_` key | Full or dim bar, remembered |
+
+A `deck` mode with a play/pause key, a volume meter and a music visualizer is
+still in the code. Set `order = ["deck"]` under `[modes]` to use it; a quick tap on
+Fn then brings up the key row.
 
 ## Configuration
 
@@ -109,12 +106,37 @@ A control key looks like this:
 [[controls]]
 label = "LOCK"
 keys = ["LEFTMETA", "L"]   # Linux key names without KEY_
-width = 2                  # relative width, default 2
+width = 200                # optional minimum in pixels
 ```
 
 Key names are in `/usr/include/linux/input-event-codes.h`. Use `show = "bar"`,
-`"theme"`, `"clock"` or `"battery"` instead of `label` and `keys` for the
-special buttons. A wrong key name skips that button and logs why.
+`"theme"`, `"playpause"`, `"clock"` or `"battery"` instead of `label` and `keys`
+for the special buttons. `playpause` shows PLAY or PAUSE depending on the player.
+
+Keys size themselves to their label and pack to the left; a clock or battery at
+the end of the row moves to the right edge. Labels can use the DOS smileys from
+code page 437: `"\u0001"` (outline) and `"\u0002"` (filled), the bullet
+`"\u0007"`, the music notes `"\u000D"` and `"\u000E"`, and the thick bar
+`"\u0016"`.
+
+`key_background = "matrix"` under `[ui]` runs an animation behind the keys, dimmed
+inside them so labels stay readable. Leave it out for a black row. It doesn't react
+to music.
+
+Spacing is yours to set. `key_gap` under `[ui]` is the space between all keys, 0
+to 40 pixels. A gap between groups is an entry of its own, and `blink = true`
+makes the last character of a label blink like a cursor:
+
+```toml
+[[controls]]
+show = "gap"
+width = 60      # pixels, default 40
+
+[[controls]]
+label = ">_"
+keys = ["LEFTCTRL", "LEFTALT", "T"]
+blink = true
+``` A wrong key name skips that button and logs why.
 
 Keys can only send keystrokes. To launch a program, bind a GNOME shortcut to it
 and let the key send that shortcut.
@@ -156,16 +178,16 @@ No hardware needed for most work:
 ```sh
 cmake -B build && cmake --build build
 ./build/touchbar-fx-test
-./build/touchbar-fx --dump-frames 300 --null-audio --dump-mode deck \
+./build/touchbar-fx --dump-frames 300 --null-audio --dump-mode controls \
     --out /tmp/frames --width 2008 --height 60
 ```
 
 Adding an animation is one file in `src/viz/presets/` with a `REGISTER_PRESET`
-line, then add its name to `cycle` in the config.
+line, then set `key_background` to its name in the config.
 [docs/HANDLEIDING.md](docs/HANDLEIDING.md) has a worked example, in Dutch.
 
 ```
-src/mode/      deck, Fn key rows, original media center
+src/mode/      key rows, deck, original media center
 src/viz/       renderer core and presets
 src/widget/    widgets and layout
 src/input/     touch, Fn watcher, virtual keyboard
@@ -175,8 +197,8 @@ systemd/       service template and suspend hook
 
 ## Changes from touchbar-fx
 
-- Added: deck mode, `matrix`, `life` and `stars`, amber and green terminal
-  themes, Fn layers, configurable control row, `BAR` key, `install.sh`, a
+- Added: key row as the main bar, deck mode, `matrix`, `life` and `stars`, amber and green terminal
+  themes, Fn layers, configurable control row, bar brightness key, `install.sh`, a
   general service and suspend hook.
 - Fixed: the 2008-pixel bar of the 13" models is now detected, and the program
   no longer hangs on exit while no audio plays.

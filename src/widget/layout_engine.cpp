@@ -83,6 +83,7 @@ void LayoutEngine::render(Framebuffer& output) {
         sub.clear(0xFF000000);
         slot.widget->render(sub);
         if (theme::terminal) theme::crt(sub);
+        slot.widget->renderAfterCrt(sub);
 
         // Blit into composite at the correct offset
         output.blit(sub, 0, 0, slot.width, total_height_, slot.x_offset, 0);
