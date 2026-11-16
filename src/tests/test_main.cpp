@@ -472,6 +472,24 @@ static void test_theme() {
     CHECK(fbuf.getPixel(1, 0) == 0xFF000000);
     CHECK((fbuf.getPixel(0, 1) & 0xFF0000) < (amb.text & 0xFF0000));
 
+    // Boost: no scanline dimming, and dim pixels move up.
+    theme::apply(amb, "amber");
+    Framebuffer dimmed(2, 2), boosted(2, 2);
+    dimmed.clear(0xFF404040);
+    boosted.clear(0xFF404040);
+    theme::crt(dimmed);
+    theme::boost = true;
+    theme::crt(boosted);
+    theme::boost = false;
+    CHECK(boosted.getPixel(0, 1) == boosted.getPixel(0, 0));
+    CHECK((boosted.getPixel(0, 0) & 0xFF0000) > (dimmed.getPixel(0, 0) & 0xFF0000));
+    Framebuffer white(1, 1);
+    white.clear(0xFFFFFFFF);
+    theme::boost = true;
+    theme::crt(white);
+    theme::boost = false;
+    CHECK(white.getPixel(0, 0) == amb.text);  // full stays full
+
     theme::apply(def);
     CHECK(!Framebuffer::square_corners);
 }
@@ -963,14 +981,16 @@ static void test_controls_config() {
         {KEY_LEFTCTRL, true}, {KEY_A, true},
         {KEY_A, false}, {KEY_LEFTCTRL, false}}));
 
-    row->onPress(100, 30);         // BAR: full -> dim -> full, never off
+    row->onPress(100, 30);         // BAR: full -> boost -> dim, never off
     row->onRelease();
-    CHECK_EQ(level, 1);
+    CHECK_EQ(level, 3);
     row->onPress(100, 30);
     row->onRelease();
-    CHECK_EQ(level, 2);
+    CHECK_EQ(level, 1);
     CHECK_EQ(cycles, 2);
+    CHECK_EQ(BarBacklight::nextLevel(1), 2);
     CHECK_EQ(BarBacklight::nextLevel(0), 2);
+    CHECK_EQ(BarBacklight::nextLevel(-1), 2);
 
     Config def;                    // the shipped row builds without skips
     ModeContext ctx2{loop, def, src, nullptr};
@@ -1016,6 +1036,10 @@ static void test_control_row_fit() {
     CHECK(bar.getPixel(3, 9) != 0);   // thick bar, four rows
     CHECK(bar.getPixel(3, 5) == 0);
     CHECK(memcmp(bar.data(), q.data(), 8 * 16 * 4) != 0);
+    Framebuffer block(8, 16);
+    block.clear(0);
+    block.drawText(0, 0, "\xdb", 0xFFFFFFFF);
+    CHECK(block.getPixel(0, 0) != 0 && block.getPixel(7, 15) != 0);
     Framebuffer dot(8, 16);
     dot.clear(0);
     dot.drawText(0, 0, "\x07", 0xFFFFFFFF);
@@ -1186,7 +1210,10 @@ static void test_bar_key_look() {
     };
     const int dim = lit();
     level = 2;
-    CHECK(lit() > dim);  // thick bar lights more than the underscore
+    const int full = lit();
+    CHECK(full > dim);   // thick bar lights more than the underscore
+    level = 3;
+    CHECK(lit() > full); // the full block lights more still
 }
 
 static void test_control_row_look() {

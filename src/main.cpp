@@ -267,9 +267,12 @@ int main(int argc, char* argv[]) {
     if (bar.available()) {
         const int saved = Config::savedBarLevel();
         if (saved >= 0) bar.set(saved);
+        theme::boost = bar.boosted();
         ctx.bar_level = [&bar] { return bar.level(); };
         ctx.cycle_bar = [&bar] {
             bar.cycle();
+            theme::boost = bar.boosted();
+            ++theme::generation;  // every widget redraws with or without boost
             Config::saveBarLevel(bar.level());
         };
     }

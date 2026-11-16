@@ -65,6 +65,7 @@ namespace theme {
     extern uint32_t zone_border;
     extern bool     zone_frame;
     extern bool     terminal;
+    extern bool     boost;  // brightest bar level: crt() skips its dimming
 
     void apply(const Theme& t);
     void apply(const Theme& t, const std::string& name);

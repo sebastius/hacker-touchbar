@@ -25,6 +25,7 @@ namespace theme {
     uint32_t zone_border = 0xFF004400;  // 1px frame around widget zones
     bool     zone_frame  = false;       // zone frames off by default
     bool     terminal    = false;
+    bool     boost       = false;
     uint32_t generation  = 0;           // bumps on every retint
     std::string current_name;
 
@@ -86,13 +87,15 @@ namespace theme {
                        pb = text & 0xFF;
         uint32_t* px = fb.data();
         for (int y = 0; y < h; ++y) {
-            const uint32_t row = (y & 1) ? 180 : 255;
+            // Boost: no scanlines, and dim content lifted halfway to full.
+            const uint32_t row = (y & 1) && !boost ? 180 : 255;
             for (int x = 0; x < w; ++x, ++px) {
                 const uint32_t c = *px;
                 uint32_t v = (c >> 16) & 0xFF;
                 if (((c >> 8) & 0xFF) > v) v = (c >> 8) & 0xFF;
                 if ((c & 0xFF) > v) v = c & 0xFF;
                 if (!v) continue;
+                if (boost) v += (255 - v) / 2;
                 v = v * row / 255;
                 *px = 0xFF000000u | ((pr * v / 255) << 16) |
                       ((pg * v / 255) << 8) | (pb * v / 255);

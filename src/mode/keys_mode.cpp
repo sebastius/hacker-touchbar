@@ -53,9 +53,10 @@ static bool build_key(const ControlKey& c, ModeContext& ctx, Key& key) {
     } else if (c.show == "bar") {
         key.fit_text = "_";
         key.action = [&ctx] { if (ctx.cycle_bar) ctx.cycle_bar(); };
-        key.text = [&ctx] {  // dim is a thin line, full the thick DOS bar
+        key.text = [&ctx] {  // a thin line, the thick DOS bar, the full block
             const int level = ctx.bar_level ? ctx.bar_level() : -1;
-            return std::string(level >= 2 ? "\x16" : level == 1 ? "_" : "-");
+            return std::string(level >= 3 ? "\xdb" : level == 2 ? "\x16"
+                               : level == 1 ? "_" : "-");
         };
     } else if (c.show != "label") {
         log_warn("[[controls]]: unknown show '%s' - skipped", c.show.c_str());

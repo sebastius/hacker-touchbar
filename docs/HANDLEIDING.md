@@ -60,7 +60,10 @@ opent een terminal. De knop `PLAY` wordt `PAUSE` zolang er iets speelt. Verder
 zitten er twee speciale knoppen in:
 
 - **Het gekleurde bolletje** wisselt naar de kleur van dat bolletje.
-- **`▬` of `_`** wisselt tussen een volle (`▬`) en een gedimde (`_`) balk.
+- **`_`, `▬` en `█`** wisselen tussen een gedimde, een volle en een extra heldere
+  balk. De hardware kent maar twee standen; `█` voegt daar in de software iets aan
+  toe: de scanlines gaan uit en donkere delen worden lichter. Dat werkt alleen in
+  amber en groen, en je verliest er het CRT-effect mee.
 
 Beide keuzes blijven bewaard. De balk uitzetten kan niet met de knop, omdat je
 hem dan niet meer ziet.

@@ -33,7 +33,9 @@ touchbar-fx](#changes-from-touchbar-fx) and [License](#license).
 - **Fn:** hold Fn for F1-F12. Keys are real key events, so holding and combos
   work.
 - **Your own keys:** the row comes from the config file.
-- **Bar brightness:** a key switches between full and dim and remembers it.
+- **Bar brightness:** one key steps through dim, full and boost, and remembers it.
+  Boost is the full hardware level plus no scanline dimming and lifted dim
+  content, so it only does something in the amber and green themes.
 - **Background service:** starts when you log in, stops around suspend, and
   hands the bar back to tiny-dfr when it stops.
 
@@ -84,7 +86,7 @@ To remove it again, which gives the bar back to tiny-dfr:
 | `PLAY` / `PAUSE` key | Play or pause; follows the current player (any MPRIS player) |
 | Hold Fn | F1-F12 |
 | Colored dot key | Switch to the theme of that color, remembered |
-| `▬` / `_` key | Full or dim bar, remembered |
+| `_` / `▬` / `█` key | Dim, full or boosted bar, remembered |
 
 A `deck` mode with a play/pause key, a volume meter and a music visualizer is
 still in the code. Set `order = ["deck"]` under `[modes]` to use it; a quick tap on
@@ -117,7 +119,8 @@ Keys size themselves to their label and pack to the left; a clock or battery at
 the end of the row moves to the right edge. Labels can use the DOS smileys from
 code page 437: `"\u0001"` (outline) and `"\u0002"` (filled), the bullet
 `"\u0007"`, the music notes `"\u000D"` and `"\u000E"`, and the thick bar
-`"\u0016"`.
+`"\u0016"`. The full block `"\u00DB"` would arrive as UTF-8 and doesn't work as
+a label.
 
 `key_background = "matrix"` under `[ui]` runs an animation behind the keys, dimmed
 inside them so labels stay readable. Leave it out for a black row. It doesn't react

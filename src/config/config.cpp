@@ -58,7 +58,7 @@ void Config::saveTheme(const std::string& name) { writeState("theme", name); }
 
 int Config::savedBarLevel() {
     const std::string v = readState("bar-brightness");
-    return (v == "1" || v == "2") ? v[0] - '0' : -1;
+    return (v == "1" || v == "2" || v == "3") ? v[0] - '0' : -1;
 }
 
 void Config::saveBarLevel(int level) {

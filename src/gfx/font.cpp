@@ -3,8 +3,9 @@
 
 // The DOS code page 437 symbols used on keys, 8x16: 01 and 02 are the
 // outline and filled smileys, 07 the bullet, 0D and 0E the single and
-// double music note, 16 (hex) the thick horizontal bar.
-static const uint8_t* cp437_glyph(char c) {
+// double music note, 16 the thick horizontal bar, DB the full block.
+static const uint8_t* cp437_glyph(char ch) {
+    const unsigned char c = static_cast<unsigned char>(ch);
     static const uint8_t smiley_outline[16] = {
         0x00, 0x00, 0x7E, 0x81, 0xA5, 0x81, 0x81, 0xBD,
         0x99, 0x81, 0x81, 0x7E, 0x00, 0x00, 0x00, 0x00};
@@ -20,6 +21,9 @@ static const uint8_t* cp437_glyph(char c) {
     static const uint8_t note_double[16] = {
         0x00, 0x00, 0x7F, 0x63, 0x7F, 0x63, 0x63, 0x63,
         0x63, 0x67, 0xE7, 0xE6, 0xC0, 0x00, 0x00, 0x00};
+    static const uint8_t full_block[16] = {
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     static const uint8_t thick_bar[16] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0xFE, 0xFE, 0xFE, 0xFE, 0x00, 0x00, 0x00, 0x00};
@@ -30,6 +34,7 @@ static const uint8_t* cp437_glyph(char c) {
     case 0x0D: return note_single;
     case 0x0E: return note_double;
     case 0x16: return thick_bar;
+    case 0xDB: return full_block;
     default:   return nullptr;
     }
 }
